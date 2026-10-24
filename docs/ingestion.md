@@ -190,6 +190,7 @@ curl -i -X POST http://localhost:8080/v1/events/ingest \
 | `timestamp:"not-a-date"` | `{"errors":[{"field":"timestamp","message":"invalid value for Instant"}]}` |
 | truncated JSON | `{"errors":[{"field":"body","message":"malformed JSON request body"}]}` |
 | batch with any invalid event | `400`, nothing stored (atomic) |
+| unexpected server error | `500` `{"errors":[{"message":"Internal server error"}]}` (cause logged, never leaked) |
 
 ---
 
@@ -218,6 +219,14 @@ docker compose up --build
 Then open <http://localhost:8080/swagger-ui/index.html>.
 
 ---
+
+## Known limitations / would improve
+
+- **Empty batch** (`[]`) returns `201 []` (a no-op success) rather than a `400`.
+- **No max batch size** — a very large array (e.g. 10k events) is processed in one request;
+  would add a cap and return `413 Payload Too Large` past it.
+- **Batch error reporting** — transport errors are indexed (`[0].rule.category`) but semantic
+  errors are not (`eventId`); per-index semantic errors would be a nice addition.
 
 ## Status
 

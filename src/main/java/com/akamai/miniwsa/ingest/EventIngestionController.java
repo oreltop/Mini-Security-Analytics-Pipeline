@@ -4,10 +4,10 @@ import com.akamai.miniwsa.domain.EnrichedEvent;
 import com.akamai.miniwsa.domain.SecurityEvent;
 import java.util.List;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -31,8 +31,8 @@ public class EventIngestionController {
     }
 
     @PostMapping("/ingest")
-    public ResponseEntity<List<EnrichedEvent>> ingest(@RequestBody List<SecurityEvent> events) {
-        List<EnrichedEvent> accepted = ingestionService.ingest(events);
-        return ResponseEntity.status(HttpStatus.CREATED).body(accepted);
+    @ResponseStatus(HttpStatus.CREATED)
+    public List<EnrichedEvent> ingest(@RequestBody List<SecurityEvent> events) {
+        return ingestionService.ingest(events);
     }
 }

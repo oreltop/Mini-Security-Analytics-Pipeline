@@ -6,20 +6,29 @@ import com.fasterxml.jackson.databind.exc.MismatchedInputException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 /**
- * Translates ingestion failures into HTTP responses, all under one error shape
- * ({@link ErrorResponse}) so clients get a consistent, informative 400 whether
- * the input failed semantic validation in the core or failed to parse at the
- * transport layer.
+ * Translates failures into HTTP responses under one error shape
+ * ({@link ErrorResponse}). Extends {@link ResponseEntityExceptionHandler} so
+ * Spring's standard MVC exceptions (405, 415, …) keep their correct status
+ * codes, while we customise the body for unreadable requests and add a safe
+ * catch-all so nothing unexpected leaks a stack trace or an opaque 500.
  */
 @RestControllerAdvice
-public class IngestionExceptionHandler {
+public class IngestionExceptionHandler extends ResponseEntityExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(IngestionExceptionHandler.class);
 
     /** Semantic validation failures raised by the ingestion core. */
     @ExceptionHandler(InvalidEventException.class)
@@ -33,10 +42,20 @@ public class IngestionExceptionHandler {
      * SecurityEvent (unknown enum, wrong type, malformed JSON). We surface the
      * reason instead of Spring's opaque default body.
      */
-    @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<ErrorResponse> handleUnreadable(HttpMessageNotReadableException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(new ErrorResponse(List.of(describe(ex))));
+    @Override
+    protected ResponseEntity<Object> handleHttpMessageNotReadable(
+            HttpMessageNotReadableException ex, HttpHeaders headers,
+            HttpStatusCode status, WebRequest request) {
+        ErrorResponse body = new ErrorResponse(List.of(describe(ex)));
+        return new ResponseEntity<>(body, HttpStatus.BAD_REQUEST);
+    }
+
+    /** Anything unexpected becomes a clean 500 that doesn't leak internals. */
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ErrorResponse> handleUnexpected(Exception ex) {
+        log.error("Unhandled exception during request processing", ex);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(new ErrorResponse(List.of(new ValidationError(null, "Internal server error"))));
     }
 
     private ValidationError describe(HttpMessageNotReadableException ex) {
