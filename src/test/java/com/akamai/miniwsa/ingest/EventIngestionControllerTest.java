@@ -96,4 +96,26 @@ class EventIngestionControllerTest {
                 .andExpect(jsonPath("$.errors[*].field", hasItem("eventId")))
                 .andExpect(jsonPath("$.errors[*].field", hasItem("clientIp")));
     }
+
+    @Test
+    void rejectsUnknownEnumWith400InOurErrorShape() throws Exception {
+        String badEnum = VALID_EVENT.replace("\"category\": \"INJECTION\"", "\"category\": \"BANANA\"");
+
+        mockMvc.perform(post("/v1/events/ingest")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(badEnum))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[*].field", hasItem("rule.category")));
+    }
+
+    @Test
+    void rejectsMalformedJsonWith400InOurErrorShape() throws Exception {
+        String malformed = "{ \"eventId\": \"evt-1\", ";
+
+        mockMvc.perform(post("/v1/events/ingest")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(malformed))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[*].field", hasItem("body")));
+    }
 }
