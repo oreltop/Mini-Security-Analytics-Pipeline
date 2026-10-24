@@ -39,7 +39,10 @@ class StatsSummaryControllerTest {
                 .andExpect(jsonPath("$.timeRange.to").value("2026-05-21T00:00:00Z"))
                 .andExpect(jsonPath("$.byCategory.INJECTION.count").value(2))
                 .andExpect(jsonPath("$.byCategory.INJECTION.avgThreatScore").value(75.0))
-                .andExpect(jsonPath("$.byAction.DENY").value(2));
+                .andExpect(jsonPath("$.byAction.DENY").value(2))
+                .andExpect(jsonPath("$.topAttackers[0].clientIp").value("203.0.113.42"))
+                .andExpect(jsonPath("$.topAttackers[0].count").value(2))
+                .andExpect(jsonPath("$.topAttackers[0].avgThreatScore").value(75.0));
     }
 
     private void ingest(String eventId) throws Exception {

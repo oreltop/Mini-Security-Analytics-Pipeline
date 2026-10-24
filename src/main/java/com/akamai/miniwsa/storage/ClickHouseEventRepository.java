@@ -7,6 +7,7 @@ import com.akamai.miniwsa.domain.Rule;
 import com.akamai.miniwsa.domain.RuleCategory;
 import com.akamai.miniwsa.domain.SecurityEvent;
 import com.akamai.miniwsa.domain.Severity;
+import com.akamai.miniwsa.stats.AttackerStats;
 import com.akamai.miniwsa.stats.CategoryStats;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -150,6 +151,30 @@ public class ClickHouseEventRepository implements EventRepository {
                 rs.getLong("cnt"));
         jdbcTemplate.query(sql.toString(), handler, args.toArray());
         return byAction;
+    }
+
+    @Override
+    public List<AttackerStats> topAttackers(Long configId, Instant from, Instant to, int limit) {
+        StringBuilder sql = new StringBuilder(
+                "SELECT clientIp, count() AS cnt, avg(threatScore) AS avg FROM events "
+                        + "WHERE timestamp >= ? AND timestamp <= ?");
+        List<Object> args = new ArrayList<>();
+        args.add(utc(from));
+        args.add(utc(to));
+        if (configId != null) {
+            sql.append(" AND configId = ?");
+            args.add(configId);
+        }
+        sql.append(" GROUP BY clientIp ORDER BY cnt DESC LIMIT ?");
+        args.add(limit);
+
+        List<AttackerStats> top = new ArrayList<>();
+        RowCallbackHandler handler = rs -> top.add(new AttackerStats(
+                rs.getString("clientIp"),
+                rs.getLong("cnt"),
+                rs.getDouble("avg")));
+        jdbcTemplate.query(sql.toString(), handler, args.toArray());
+        return top;
     }
 
     private RowMapper<EnrichedEvent> enrichedEventRowMapper() {

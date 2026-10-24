@@ -4,6 +4,7 @@ import com.akamai.miniwsa.domain.Action;
 import com.akamai.miniwsa.domain.RuleCategory;
 import com.akamai.miniwsa.storage.EventRepository;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Service;
 
@@ -15,6 +16,8 @@ import org.springframework.stereotype.Service;
 @Service
 public class StatsService {
 
+    private static final int TOP_ATTACKERS_LIMIT = 10;
+
     private final EventRepository repository;
 
     public StatsService(EventRepository repository) {
@@ -25,6 +28,8 @@ public class StatsService {
         long totalEvents = repository.countInRange(configId, from, to);
         Map<RuleCategory, CategoryStats> byCategory = repository.statsByCategory(configId, from, to);
         Map<Action, Long> byAction = repository.countByAction(configId, from, to);
-        return new StatsSummary(configId, new TimeRange(from, to), totalEvents, byCategory, byAction);
+        List<AttackerStats> topAttackers = repository.topAttackers(configId, from, to, TOP_ATTACKERS_LIMIT);
+        return new StatsSummary(
+                configId, new TimeRange(from, to), totalEvents, byCategory, byAction, topAttackers);
     }
 }

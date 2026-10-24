@@ -3,6 +3,7 @@ package com.akamai.miniwsa.storage;
 import com.akamai.miniwsa.domain.Action;
 import com.akamai.miniwsa.domain.EnrichedEvent;
 import com.akamai.miniwsa.domain.RuleCategory;
+import com.akamai.miniwsa.stats.AttackerStats;
 import com.akamai.miniwsa.stats.CategoryStats;
 import java.time.Instant;
 import java.util.List;
@@ -44,4 +45,10 @@ public interface EventRepository {
      * {@code byAction} section.
      */
     Map<Action, Long> countByAction(Long configId, Instant from, Instant to);
+
+    /**
+     * Top client IPs by event count (with average threat score), over the config +
+     * timestamp range. Backs the stats {@code topAttackers} section.
+     */
+    List<AttackerStats> topAttackers(Long configId, Instant from, Instant to, int limit);
 }

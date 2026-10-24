@@ -3,9 +3,11 @@ package com.akamai.miniwsa.storage;
 import com.akamai.miniwsa.domain.Action;
 import com.akamai.miniwsa.domain.EnrichedEvent;
 import com.akamai.miniwsa.domain.RuleCategory;
+import com.akamai.miniwsa.stats.AttackerStats;
 import com.akamai.miniwsa.stats.CategoryStats;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -69,6 +71,22 @@ public class InMemoryEventRepository implements EventRepository {
                 .filter(e -> configId == null || configId.equals(e.event().configId()))
                 .filter(e -> withinRange(e.event().timestamp(), from, to))
                 .collect(Collectors.groupingBy(e -> e.event().action(), Collectors.counting()));
+    }
+
+    @Override
+    public List<AttackerStats> topAttackers(Long configId, Instant from, Instant to, int limit) {
+        return eventsById.values().stream()
+                .filter(e -> configId == null || configId.equals(e.event().configId()))
+                .filter(e -> withinRange(e.event().timestamp(), from, to))
+                .collect(Collectors.groupingBy(e -> e.event().clientIp()))
+                .entrySet().stream()
+                .map(entry -> new AttackerStats(
+                        entry.getKey(),
+                        entry.getValue().size(),
+                        entry.getValue().stream().mapToInt(EnrichedEvent::threatScore).average().orElse(0.0)))
+                .sorted(Comparator.comparingLong(AttackerStats::count).reversed())
+                .limit(limit)
+                .toList();
     }
 
     private static boolean withinRange(Instant timestamp, Instant from, Instant to) {
