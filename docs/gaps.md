@@ -83,6 +83,5 @@ See [`rate-limiting.md`](rate-limiting.md). Still open:
 
 ## Outstanding deliverables
 
-- **`README.md`** — top-level build/run, API docs (curl), architecture overview + diagram, storage
-  justification, "what I'd improve", "challenges faced". Raw material exists in `docs/`.
-- **Architecture diagram** — ASCII diagrams exist in `docs/`; a rendered diagram is a plus.
+- **Rendered architecture diagram** — ASCII diagram is in the top-level `README.md`; a polished
+  image is still a plus for the interview packet.
