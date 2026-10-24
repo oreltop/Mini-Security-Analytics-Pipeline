@@ -7,13 +7,17 @@ import com.akamai.miniwsa.domain.Rule;
 import com.akamai.miniwsa.domain.RuleCategory;
 import com.akamai.miniwsa.domain.SecurityEvent;
 import com.akamai.miniwsa.domain.Severity;
+import com.akamai.miniwsa.stats.CategoryStats;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 
@@ -102,6 +106,28 @@ public class ClickHouseEventRepository implements EventRepository {
         }
         Number count = jdbcTemplate.queryForObject(sql.toString(), Number.class, args.toArray());
         return count == null ? 0L : count.longValue();
+    }
+
+    @Override
+    public Map<RuleCategory, CategoryStats> statsByCategory(Long configId, Instant from, Instant to) {
+        StringBuilder sql = new StringBuilder(
+                "SELECT category, count() AS cnt, avg(threatScore) AS avg FROM events "
+                        + "WHERE timestamp >= ? AND timestamp <= ?");
+        List<Object> args = new ArrayList<>();
+        args.add(utc(from));
+        args.add(utc(to));
+        if (configId != null) {
+            sql.append(" AND configId = ?");
+            args.add(configId);
+        }
+        sql.append(" GROUP BY category");
+
+        Map<RuleCategory, CategoryStats> byCategory = new HashMap<>();
+        RowCallbackHandler handler = rs -> byCategory.put(
+                RuleCategory.valueOf(rs.getString("category")),
+                new CategoryStats(rs.getLong("cnt"), rs.getDouble("avg")));
+        jdbcTemplate.query(sql.toString(), handler, args.toArray());
+        return byCategory;
     }
 
     private RowMapper<EnrichedEvent> enrichedEventRowMapper() {

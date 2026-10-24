@@ -1,8 +1,11 @@
 package com.akamai.miniwsa.storage;
 
 import com.akamai.miniwsa.domain.EnrichedEvent;
+import com.akamai.miniwsa.domain.RuleCategory;
+import com.akamai.miniwsa.stats.CategoryStats;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 /**
  * The storage seam. The application depends on this interface, not on any
@@ -28,4 +31,10 @@ public interface EventRepository {
      * Backs the stats {@code totalEvents}.
      */
     long countInRange(Long configId, Instant from, Instant to);
+
+    /**
+     * Event count and average threat score per rule category, over the config +
+     * timestamp range. Backs the stats {@code byCategory} section.
+     */
+    Map<RuleCategory, CategoryStats> statsByCategory(Long configId, Instant from, Instant to);
 }

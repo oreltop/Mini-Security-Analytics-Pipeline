@@ -1,11 +1,14 @@
 package com.akamai.miniwsa.storage;
 
 import com.akamai.miniwsa.domain.EnrichedEvent;
+import com.akamai.miniwsa.domain.RuleCategory;
+import com.akamai.miniwsa.stats.CategoryStats;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 
@@ -45,6 +48,18 @@ public class InMemoryEventRepository implements EventRepository {
                 .filter(e -> configId == null || configId.equals(e.event().configId()))
                 .filter(e -> withinRange(e.event().timestamp(), from, to))
                 .count();
+    }
+
+    @Override
+    public Map<RuleCategory, CategoryStats> statsByCategory(Long configId, Instant from, Instant to) {
+        return eventsById.values().stream()
+                .filter(e -> configId == null || configId.equals(e.event().configId()))
+                .filter(e -> withinRange(e.event().timestamp(), from, to))
+                .collect(Collectors.groupingBy(
+                        e -> e.event().rule().category(),
+                        Collectors.collectingAndThen(Collectors.toList(), group -> new CategoryStats(
+                                group.size(),
+                                group.stream().mapToInt(EnrichedEvent::threatScore).average().orElse(0.0)))));
     }
 
     private static boolean withinRange(Instant timestamp, Instant from, Instant to) {

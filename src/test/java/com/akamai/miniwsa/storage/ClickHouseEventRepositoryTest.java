@@ -10,9 +10,11 @@ import com.akamai.miniwsa.domain.Rule;
 import com.akamai.miniwsa.domain.RuleCategory;
 import com.akamai.miniwsa.domain.SecurityEvent;
 import com.akamai.miniwsa.domain.Severity;
+import com.akamai.miniwsa.stats.CategoryStats;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -110,6 +112,34 @@ class ClickHouseEventRepositoryTest {
 
         assertThat(repository.countInRange(1L, from, to)).isEqualTo(2);
         assertThat(repository.countInRange(null, from, to)).isEqualTo(3);
+    }
+
+    @Test
+    void aggregatesStatsByCategory() {
+        Instant base = Instant.parse("2026-05-20T12:00:00Z");
+        repository.save(enrichedCat("a", 1L, base, RuleCategory.INJECTION, 80));
+        repository.save(enrichedCat("b", 1L, base, RuleCategory.INJECTION, 60));
+        repository.save(enrichedCat("c", 1L, base, RuleCategory.BOT, 40));
+
+        Instant from = Instant.parse("2026-05-20T00:00:00Z");
+        Instant to = Instant.parse("2026-05-21T00:00:00Z");
+        Map<RuleCategory, CategoryStats> byCategory = repository.statsByCategory(1L, from, to);
+
+        assertThat(byCategory).hasSize(2);
+        assertThat(byCategory.get(RuleCategory.INJECTION).count()).isEqualTo(2);
+        assertThat(byCategory.get(RuleCategory.INJECTION).avgThreatScore()).isEqualTo(70.0);
+        assertThat(byCategory.get(RuleCategory.BOT).count()).isEqualTo(1);
+        assertThat(byCategory.get(RuleCategory.BOT).avgThreatScore()).isEqualTo(40.0);
+    }
+
+    private static EnrichedEvent enrichedCat(String id, long configId, Instant timestamp,
+            RuleCategory category, int threatScore) {
+        SecurityEvent event = new SecurityEvent(
+                id, timestamp, configId, "pol_web1", "203.0.113.42", "www.example.com",
+                "/api/v1/login", "POST", 403, "ua",
+                new Rule("950001", "RULE", "msg", Severity.CRITICAL, category),
+                Action.DENY, new GeoLocation("CN", "Beijing"), 1024L, 256L);
+        return new EnrichedEvent(event, category.attackType(), threatScore, timestamp);
     }
 
     private static EnrichedEvent enrichedWith(String id, long configId, Instant timestamp) {

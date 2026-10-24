@@ -36,7 +36,9 @@ class StatsSummaryControllerTest {
                 .andExpect(jsonPath("$.configId").value(777001))
                 .andExpect(jsonPath("$.totalEvents").value(2))
                 .andExpect(jsonPath("$.timeRange.from").value("2026-05-20T00:00:00Z"))
-                .andExpect(jsonPath("$.timeRange.to").value("2026-05-21T00:00:00Z"));
+                .andExpect(jsonPath("$.timeRange.to").value("2026-05-21T00:00:00Z"))
+                .andExpect(jsonPath("$.byCategory.INJECTION.count").value(2))
+                .andExpect(jsonPath("$.byCategory.INJECTION.avgThreatScore").value(75.0));
     }
 
     private void ingest(String eventId) throws Exception {

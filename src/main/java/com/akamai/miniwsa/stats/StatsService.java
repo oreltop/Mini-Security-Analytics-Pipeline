@@ -1,7 +1,9 @@
 package com.akamai.miniwsa.stats;
 
+import com.akamai.miniwsa.domain.RuleCategory;
 import com.akamai.miniwsa.storage.EventRepository;
 import java.time.Instant;
+import java.util.Map;
 import org.springframework.stereotype.Service;
 
 /**
@@ -20,6 +22,7 @@ public class StatsService {
 
     public StatsSummary summarize(Long configId, Instant from, Instant to) {
         long totalEvents = repository.countInRange(configId, from, to);
-        return new StatsSummary(configId, new TimeRange(from, to), totalEvents);
+        Map<RuleCategory, CategoryStats> byCategory = repository.statsByCategory(configId, from, to);
+        return new StatsSummary(configId, new TimeRange(from, to), totalEvents, byCategory);
     }
 }
