@@ -26,8 +26,6 @@ deliberate scope choice, not an oversight. Feeds the README's "what I'd improve"
 
 ## Deferred hardening / nice-to-haves
 
-- **Virtual threads not enabled** — we chose Java 21 for Loom but haven't flipped
-  `spring.threads.virtual.enabled=true`. Cheap throughput win for the ingestion workload.
 - **Richer OpenAPI** — only the `201` status is corrected; could add `@Operation`/`@Schema`
   descriptions and example payloads per endpoint.
 - **Observability** — no metrics/structured logging/tracing (e.g. Micrometer, request logging).
@@ -71,11 +69,17 @@ remains the zero-infra default. Remaining:
 
 _(none — Parts 1–5 are implemented; README remains as a deliverable below.)_
 
+## Rate limiting (bonus — done; residual)
+
+See [`rate-limiting.md`](rate-limiting.md). Still open:
+- In-memory only — not shared across replicas; resets on restart.
+- Uses `getRemoteAddr()` — no trusted `X-Forwarded-For` handling.
+- Ingest is not rate-limited (by design for demos).
+
 ## Bonus challenges (optional, not started)
 
 - **Alerting** — `POST /v1/alerts/define` + `GET /v1/alerts/evaluate`.
 - **Time-series** — `GET /v1/stats/timeseries?interval={1m|5m|1h}`.
-- **Rate limiting** — `429` on stats/samples (e.g. 100 req/min/IP).
 
 ## Outstanding deliverables
 
