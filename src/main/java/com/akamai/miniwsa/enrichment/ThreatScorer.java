@@ -16,14 +16,27 @@ public class ThreatScorer {
 
     private static final int MAX_SCORE = 100;
     private static final int PATH_BONUS = 15;
+    private static final int REPEAT_OFFENDER_BONUS = 15;
+    private static final int REPEAT_OFFENDER_THRESHOLD = 5;
 
-    public int score(SecurityEvent event) {
+    /**
+     * @param recentEventsFromSameIp number of events already stored from this
+     *     event's client IP within the repeat-offender window (computed by the
+     *     caller against the store); more than {@value #REPEAT_OFFENDER_THRESHOLD}
+     *     earns the repeat-offender bonus.
+     */
+    public int score(SecurityEvent event, long recentEventsFromSameIp) {
         int score = severityWeight(event.rule().severity())
                 + actionWeight(event.action())
-                + pathBonus(event.path());
+                + pathBonus(event.path())
+                + repeatOffenderBonus(recentEventsFromSameIp);
         // Spec says cap at 100. With current weights the max is 90, so this is a
         // defensive guard that keeps the contract explicit if weights change.
         return Math.min(score, MAX_SCORE);
+    }
+
+    private int repeatOffenderBonus(long recentEventsFromSameIp) {
+        return recentEventsFromSameIp > REPEAT_OFFENDER_THRESHOLD ? REPEAT_OFFENDER_BONUS : 0;
     }
 
     private int severityWeight(Severity severity) {

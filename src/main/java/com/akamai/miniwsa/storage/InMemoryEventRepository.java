@@ -1,6 +1,7 @@
 package com.akamai.miniwsa.storage;
 
-import com.akamai.miniwsa.domain.SecurityEvent;
+import com.akamai.miniwsa.domain.EnrichedEvent;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -16,15 +17,23 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class InMemoryEventRepository implements EventRepository {
 
-    private final Map<String, SecurityEvent> eventsById = new ConcurrentHashMap<>();
+    private final Map<String, EnrichedEvent> eventsById = new ConcurrentHashMap<>();
 
     @Override
-    public void save(SecurityEvent event) {
-        eventsById.put(event.eventId(), event);
+    public void save(EnrichedEvent event) {
+        eventsById.put(event.event().eventId(), event);
     }
 
     @Override
-    public List<SecurityEvent> findAll() {
+    public List<EnrichedEvent> findAll() {
         return new ArrayList<>(eventsById.values());
+    }
+
+    @Override
+    public long countByClientIpSince(String clientIp, Instant since) {
+        return eventsById.values().stream()
+                .filter(e -> e.event().clientIp().equals(clientIp))
+                .filter(e -> !e.receivedAt().isBefore(since))
+                .count();
     }
 }
