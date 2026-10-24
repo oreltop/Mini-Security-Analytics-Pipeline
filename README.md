@@ -11,27 +11,83 @@ Detailed per-step write-ups live under [`docs/`](docs/)
 
 ---
 
-## Build & run
+## Prerequisites
 
-**Requirements:** JDK 21, Maven wrapper (included). Docker optional for the
-ClickHouse full stack.
+- **JDK 21** and the included Maven wrapper (`./mvnw`)
+- **Docker** + Compose — only for the ClickHouse full stack (and for
+  `-Pintegration` Testcontainers)
+
+---
+
+## Run tests
 
 ```bash
-# Unit tests (excludes Testcontainers)
+# Fast unit / API tests (in-memory; excludes Testcontainers)
 ./mvnw test
 
-# Integration tests (ClickHouse via Testcontainers)
+# Integration tests against a real ClickHouse (Docker required)
 ./mvnw test -Pintegration
 
-# Zero-infra run (in-memory store)
-./mvnw spring-boot:run
-# → http://localhost:8080  ·  Swagger UI: /swagger-ui/index.html
+# Generator smoke checks (bash + jq; needs network only for the --post mock)
+./tools/test-generate-events.sh
+```
 
-# Full stack (app + ClickHouse)
+---
+
+## Build & run (local, in-memory)
+
+No database required — default Spring profile uses the in-memory repository.
+
+```bash
+./mvnw spring-boot:run
+```
+
+App: [http://localhost:8080](http://localhost:8080)
+
+---
+
+## Build & run (Docker / ClickHouse)
+
+Builds the app image and starts ClickHouse + the app on the `clickhouse` profile:
+
+```bash
 docker compose up --build
 ```
 
-Generate demo traffic (tooling only — not part of the app jar):
+| Service | URL |
+|---|---|
+| App | [http://localhost:8080](http://localhost:8080) |
+| ClickHouse HTTP | [http://localhost:8123](http://localhost:8123) |
+
+Stop / clean:
+
+```bash
+docker compose down
+```
+
+---
+
+## Swagger UI & OpenAPI schema
+
+With the app running (local or Compose):
+
+| What | URL |
+|---|---|
+| **Swagger UI** | [http://localhost:8080/swagger-ui/index.html](http://localhost:8080/swagger-ui/index.html) |
+| **OpenAPI JSON** | [http://localhost:8080/v3/api-docs](http://localhost:8080/v3/api-docs) |
+| **OpenAPI YAML** | [http://localhost:8080/v3/api-docs.yaml](http://localhost:8080/v3/api-docs.yaml) |
+
+```bash
+# Fetch the schema
+curl -sS http://localhost:8080/v3/api-docs | jq .
+curl -sS http://localhost:8080/v3/api-docs.yaml
+```
+
+---
+
+## Load sample data (optional)
+
+Generator is tooling only (`tools/`), not part of the app jar:
 
 ```bash
 ./tools/generate-events.sh --count 10000 --seed 42 --out /tmp/events.json
