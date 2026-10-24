@@ -201,6 +201,46 @@ public class ClickHouseEventRepository implements EventRepository {
         return top;
     }
 
+    @Override
+    public long countMatching(
+            Long configId, Instant from, Instant to, RuleCategory category, Action action) {
+        StringBuilder sql = new StringBuilder("SELECT count() FROM events WHERE 1 = 1");
+        List<Object> args = new ArrayList<>();
+        appendSampleFilters(sql, args, configId, from, to, category, action);
+        Number count = jdbcTemplate.queryForObject(sql.toString(), Number.class, args.toArray());
+        return count == null ? 0L : count.longValue();
+    }
+
+    private static void appendSampleFilters(
+            StringBuilder sql,
+            List<Object> args,
+            Long configId,
+            Instant from,
+            Instant to,
+            RuleCategory category,
+            Action action) {
+        if (from != null) {
+            sql.append(" AND timestamp >= ?");
+            args.add(utc(from));
+        }
+        if (to != null) {
+            sql.append(" AND timestamp <= ?");
+            args.add(utc(to));
+        }
+        if (configId != null) {
+            sql.append(" AND configId = ?");
+            args.add(configId);
+        }
+        if (category != null) {
+            sql.append(" AND category = ?");
+            args.add(category.name());
+        }
+        if (action != null) {
+            sql.append(" AND action = ?");
+            args.add(action.name());
+        }
+    }
+
     private RowMapper<EnrichedEvent> enrichedEventRowMapper() {
         return (rs, rowNum) -> {
             SecurityEvent event = new SecurityEvent(

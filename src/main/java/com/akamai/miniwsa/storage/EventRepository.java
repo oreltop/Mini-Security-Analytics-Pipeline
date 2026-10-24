@@ -58,4 +58,12 @@ public interface EventRepository {
      * the stats {@code topTargetedPaths} section.
      */
     List<PathCount> topPaths(Long configId, Instant from, Instant to, int limit);
+
+    /**
+     * Counts enriched events matching optional filters. Null {@code from}/{@code to}
+     * leave that bound open; null {@code configId}/{@code category}/{@code action}
+     * mean "any". Backs samples pagination {@code total}.
+     */
+    long countMatching(
+            Long configId, Instant from, Instant to, RuleCategory category, Action action);
 }

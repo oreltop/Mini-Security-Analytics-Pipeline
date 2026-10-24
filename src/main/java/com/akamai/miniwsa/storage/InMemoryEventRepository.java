@@ -103,6 +103,40 @@ public class InMemoryEventRepository implements EventRepository {
                 .toList();
     }
 
+    @Override
+    public long countMatching(
+            Long configId, Instant from, Instant to, RuleCategory category, Action action) {
+        return eventsById.values().stream()
+                .filter(e -> matches(e, configId, from, to, category, action))
+                .count();
+    }
+
+    private static boolean matches(
+            EnrichedEvent enriched,
+            Long configId,
+            Instant from,
+            Instant to,
+            RuleCategory category,
+            Action action) {
+        var event = enriched.event();
+        if (configId != null && !configId.equals(event.configId())) {
+            return false;
+        }
+        if (from != null && event.timestamp().isBefore(from)) {
+            return false;
+        }
+        if (to != null && event.timestamp().isAfter(to)) {
+            return false;
+        }
+        if (category != null && category != event.rule().category()) {
+            return false;
+        }
+        if (action != null && action != event.action()) {
+            return false;
+        }
+        return true;
+    }
+
     private static boolean withinRange(Instant timestamp, Instant from, Instant to) {
         return !timestamp.isBefore(from) && !timestamp.isAfter(to);
     }

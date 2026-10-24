@@ -118,6 +118,24 @@ class ClickHouseEventRepositoryTest {
     }
 
     @Test
+    void countMatchingTreatsFromAndToAsOptional() {
+        Instant early = Instant.parse("2026-05-19T12:00:00Z");
+        Instant mid = Instant.parse("2026-05-20T12:00:00Z");
+        Instant late = Instant.parse("2026-05-21T12:00:00Z");
+        repository.save(enrichedWith("early", 1L, early));
+        repository.save(enrichedWith("mid", 1L, mid));
+        repository.save(enrichedWith("late", 1L, late));
+
+        Instant dayStart = Instant.parse("2026-05-20T00:00:00Z");
+        Instant dayEnd = Instant.parse("2026-05-20T23:59:59Z");
+
+        assertThat(repository.countMatching(1L, dayStart, dayEnd, null, null)).isEqualTo(1);
+        assertThat(repository.countMatching(1L, dayStart, null, null, null)).isEqualTo(2);
+        assertThat(repository.countMatching(1L, null, dayEnd, null, null)).isEqualTo(2);
+        assertThat(repository.countMatching(1L, null, null, null, null)).isEqualTo(3);
+    }
+
+    @Test
     void aggregatesStatsByCategory() {
         Instant base = Instant.parse("2026-05-20T12:00:00Z");
         repository.save(enrichedCat("a", 1L, base, RuleCategory.INJECTION, 80));
