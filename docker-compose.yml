@@ -1,0 +1,10 @@
+# Brings up the full Mini WSA stack. Storage is currently in-memory, so the app
+# is the only service; when a persistent store is introduced it will be added
+# here as a dependency (e.g. a database service the app depends_on).
+services:
+  app:
+    build: .
+    image: mini-wsa:latest
+    container_name: mini-wsa
+    ports:
+      - "8080:8080"

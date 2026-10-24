@@ -1,11 +1,14 @@
 package com.akamai.miniwsa.domain;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+
 /** The security rule that matched the request. */
 public record Rule(
-        String id,
-        String name,
+        @NotBlank String id,
+        @NotBlank String name,
         String message,
-        Severity severity,
-        RuleCategory category
+        @NotNull Severity severity,
+        @NotNull RuleCategory category
 ) {
 }
