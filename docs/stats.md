@@ -99,5 +99,6 @@ Omit `configId` to roll up all configs.
 
 ## Status
 
-Part 3 complete (`v0.3-stats`). Remaining: Part 4 (samples), Part 5 (data generator), top-level
-`README.md`. Known follow-ups for stats live in [`gaps.md`](gaps.md).
+Part 3 complete (`v0.3-stats`). Part 4 (samples) is done — see [`samples.md`](samples.md).
+Remaining: Part 5 (data generator), top-level `README.md`. Stats follow-ups in
+[`gaps.md`](gaps.md).

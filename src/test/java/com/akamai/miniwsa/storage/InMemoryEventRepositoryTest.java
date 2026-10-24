@@ -89,6 +89,19 @@ class InMemoryEventRepositoryTest {
     }
 
     @Test
+    void countMatchingFiltersByCategoryAndAction() {
+        Instant base = Instant.parse("2026-05-20T12:00:00Z");
+        repository.save(enrichedCat("inj-deny", 1L, base, RuleCategory.INJECTION, 80));
+        repository.save(enrichedAction("inj-alert", 1L, base, Action.ALERT));
+        repository.save(enrichedCat("bot-deny", 1L, base, RuleCategory.BOT, 40));
+
+        assertThat(repository.countMatching(1L, null, null, RuleCategory.INJECTION, null)).isEqualTo(2);
+        assertThat(repository.countMatching(1L, null, null, null, Action.DENY)).isEqualTo(2);
+        assertThat(repository.countMatching(1L, null, null, RuleCategory.INJECTION, Action.ALERT))
+                .isEqualTo(1);
+    }
+
+    @Test
     void findPageReturnsNewestFirstWithLimitAndOffset() {
         Instant t1 = Instant.parse("2026-05-20T10:00:00Z");
         Instant t2 = Instant.parse("2026-05-20T11:00:00Z");

@@ -48,12 +48,37 @@ class SamplesControllerTest {
                 .andExpect(jsonPath("$.limit").value(100));
     }
 
+    @Test
+    void samplesFiltersByCategoryAndAction() throws Exception {
+        ingest("evt-filter-1", 888002);
+
+        mockMvc.perform(get("/v1/events/samples")
+                        .param("configId", "888002")
+                        .param("category", "INJECTION")
+                        .param("action", "DENY"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(1))
+                .andExpect(jsonPath("$.items[0].rule.category").value("INJECTION"))
+                .andExpect(jsonPath("$.items[0].action").value("DENY"));
+
+        mockMvc.perform(get("/v1/events/samples")
+                        .param("configId", "888002")
+                        .param("category", "BOT"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(0))
+                .andExpect(jsonPath("$.items").isEmpty());
+    }
+
     private void ingest(String eventId) throws Exception {
+        ingest(eventId, 888001);
+    }
+
+    private void ingest(String eventId, long configId) throws Exception {
         String json = """
                 {
                   "eventId": "%s",
                   "timestamp": "2026-05-20T14:32:10Z",
-                  "configId": 888001,
+                  "configId": %d,
                   "policyId": "pol_web1",
                   "clientIp": "198.51.100.88",
                   "hostname": "www.example.com",
@@ -67,7 +92,7 @@ class SamplesControllerTest {
                   "requestSize": 1024,
                   "responseSize": 256
                 }
-                """.formatted(eventId);
+                """.formatted(eventId, configId);
         mockMvc.perform(post("/v1/events/ingest")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))

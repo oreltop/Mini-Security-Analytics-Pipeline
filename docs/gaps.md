@@ -53,9 +53,15 @@ remains the zero-infra default. Remaining:
 - `from > to` is not rejected explicitly (yields an empty summary).
 - Top-N limit is fixed at 10 (per assignment); not query-param configurable.
 
+## Samples (Part 4 — done; residual)
+
+- Unbounded queries (no `from`/`to`) can scan the whole table on ClickHouse — fine for the mini;
+  production would require a range or a max lookback.
+- Negative / zero `limit` or `offset` not validated (passed through; odd pages possible).
+- Invalid enum query params (`category=foo`) use Spring's default 400 body, not `ErrorResponse`.
+
 ## Parts not yet built
 
-- **Part 4 — Samples API** (`GET /v1/events/samples`) — not started (pagination, filters, sort).
 - **Part 5 — Data generator** — not started (realistic events + attack waves, ~10k configurable).
 
 ## Bonus challenges (optional, not started)

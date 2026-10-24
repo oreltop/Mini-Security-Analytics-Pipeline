@@ -235,5 +235,6 @@ Then open <http://localhost:8080/swagger-ui/index.html>.
 
 ## Status
 
-Parts 1 (ingestion), 2 (enrichment), and 3 (stats) are complete. Remaining: Part 4
-(samples), Part 5 (data generator). See [`stats.md`](stats.md).
+Parts 1–4 are complete (ingestion, enrichment, stats, samples). Remaining: Part 5
+(data generator) and the top-level README. See [`stats.md`](stats.md),
+[`samples.md`](samples.md).

@@ -132,6 +132,5 @@ from the same batch that were already saved — which is correct.
 
 ## Status
 
-Part 2 complete. The stored `EnrichedEvent`s are what Part 3 (stats — done, see
-[`stats.md`](stats.md)) and Part 4 (samples)
-will query.
+Part 2 complete. The stored `EnrichedEvent`s are what Part 3 (stats — [`stats.md`](stats.md))
+and Part 4 (samples — [`samples.md`](samples.md)) query.
