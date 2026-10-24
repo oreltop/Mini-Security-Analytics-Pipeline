@@ -4,6 +4,9 @@ Everything consciously **not done yet** — known limitations of current behavio
 hardening, parts not built, optional bonuses, and outstanding deliverables. Each item is a
 deliberate scope choice, not an oversight. Feeds the README's "what I'd improve" section.
 
+Structural design debts (same API / different semantics, non-atomic enrichment, etc.) live in
+[`weaknesses.md`](weaknesses.md) — not the same as this punch-list.
+
 ### Component flowchart
 
 How this catalog maps onto the system (residuals sit beside finished parts):

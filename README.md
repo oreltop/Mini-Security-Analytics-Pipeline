@@ -8,7 +8,7 @@ Detailed write-ups live under [`docs/`](docs/)
 [enrichment](docs/enrichment.md), [storage](docs/storage.md),
 [stats](docs/stats.md), [samples](docs/samples.md),
 [generator](docs/generator.md), [rate-limiting](docs/rate-limiting.md),
-[gaps](docs/gaps.md)).
+[gaps](docs/gaps.md), [weaknesses](docs/weaknesses.md)).
 
 ---
 
