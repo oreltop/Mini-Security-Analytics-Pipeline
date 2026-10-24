@@ -10,6 +10,7 @@ import com.akamai.miniwsa.domain.Severity;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
 import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -85,6 +86,21 @@ public class ClickHouseEventRepository implements EventRepository {
     public long countByClientIpSince(String clientIp, Instant since) {
         Number count = jdbcTemplate.queryForObject(
                 COUNT_BY_IP_SINCE, Number.class, clientIp, utc(since));
+        return count == null ? 0L : count.longValue();
+    }
+
+    @Override
+    public long countInRange(Long configId, Instant from, Instant to) {
+        StringBuilder sql = new StringBuilder(
+                "SELECT count() FROM events WHERE timestamp >= ? AND timestamp <= ?");
+        List<Object> args = new ArrayList<>();
+        args.add(utc(from));
+        args.add(utc(to));
+        if (configId != null) {
+            sql.append(" AND configId = ?");
+            args.add(configId);
+        }
+        Number count = jdbcTemplate.queryForObject(sql.toString(), Number.class, args.toArray());
         return count == null ? 0L : count.longValue();
     }
 

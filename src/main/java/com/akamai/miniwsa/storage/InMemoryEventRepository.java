@@ -38,4 +38,16 @@ public class InMemoryEventRepository implements EventRepository {
                 .filter(e -> !e.receivedAt().isBefore(since))
                 .count();
     }
+
+    @Override
+    public long countInRange(Long configId, Instant from, Instant to) {
+        return eventsById.values().stream()
+                .filter(e -> configId == null || configId.equals(e.event().configId()))
+                .filter(e -> withinRange(e.event().timestamp(), from, to))
+                .count();
+    }
+
+    private static boolean withinRange(Instant timestamp, Instant from, Instant to) {
+        return !timestamp.isBefore(from) && !timestamp.isAfter(to);
+    }
 }

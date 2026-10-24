@@ -21,4 +21,11 @@ public interface EventRepository {
      * at or after {@code since}. Used for the repeat-offender threat bonus.
      */
     long countByClientIpSince(String clientIp, Instant since);
+
+    /**
+     * Counts stored events whose event {@code timestamp} falls in [{@code from},
+     * {@code to}]. A null {@code configId} counts across all configurations.
+     * Backs the stats {@code totalEvents}.
+     */
+    long countInRange(Long configId, Instant from, Instant to);
 }
