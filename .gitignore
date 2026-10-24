@@ -23,5 +23,8 @@
 hs_err_pid*
 replay_pid*
 
+# Maven build output
+target/
+
 # Personal hints / notes (not part of the submission)
 hints/
