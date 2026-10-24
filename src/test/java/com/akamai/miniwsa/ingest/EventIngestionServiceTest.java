@@ -17,6 +17,7 @@ import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import jakarta.validation.ValidatorFactory;
 import java.time.Instant;
+import java.util.List;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -99,6 +100,21 @@ class EventIngestionServiceTest {
 
         assertThat(repository.findAll()).hasSize(1);
         assertThat(last.threatScore()).isEqualTo(75); // base only; replays never exceed 5
+    }
+
+    @Test
+    void batchWithAnyInvalidEventStoresNothing() {
+        // All-or-nothing: a single invalid event rejects the whole batch, and no
+        // event (not even the valid ones) is stored.
+        SecurityEvent valid = eventWithId("evt-ok");
+        SecurityEvent invalid = new SecurityEvent(
+                null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null);
+
+        assertThatThrownBy(() -> service.ingest(List.of(valid, invalid)))
+                .isInstanceOf(InvalidEventException.class);
+
+        assertThat(repository.findAll()).isEmpty();
     }
 
     @Test

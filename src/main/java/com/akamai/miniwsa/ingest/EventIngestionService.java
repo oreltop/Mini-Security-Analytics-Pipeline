@@ -42,6 +42,22 @@ public class EventIngestionService {
         return enriched;
     }
 
+    /**
+     * Ingests a batch all-or-nothing: every event is validated first, so if any
+     * is invalid the whole batch is rejected and nothing is stored. Only once
+     * all pass are they enriched and saved, in order.
+     */
+    public List<EnrichedEvent> ingest(List<SecurityEvent> events) {
+        events.forEach(this::validate);
+        return events.stream()
+                .map(event -> {
+                    EnrichedEvent enriched = enrich(event);
+                    repository.save(enriched);
+                    return enriched;
+                })
+                .toList();
+    }
+
     private void validate(SecurityEvent event) {
         Set<ConstraintViolation<SecurityEvent>> violations = validator.validate(event);
         if (!violations.isEmpty()) {

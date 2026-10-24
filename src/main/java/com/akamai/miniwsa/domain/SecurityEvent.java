@@ -3,6 +3,8 @@ package com.akamai.miniwsa.domain;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 import java.time.Instant;
 
 /**
@@ -17,18 +19,18 @@ import java.time.Instant;
 public record SecurityEvent(
         @NotBlank String eventId,
         @NotNull Instant timestamp,
-        long configId,
+        @NotNull @Positive Long configId,
         String policyId,
         @NotBlank String clientIp,
         @NotBlank String hostname,
         @NotBlank String path,
         @NotBlank String method,
-        int statusCode,
+        @NotNull @Positive Integer statusCode,
         String userAgent,
         @NotNull @Valid Rule rule,
         @NotNull Action action,
         @Valid GeoLocation geoLocation,
-        long requestSize,
-        long responseSize
+        @NotNull @PositiveOrZero Long requestSize,
+        @NotNull @PositiveOrZero Long responseSize
 ) {
 }
