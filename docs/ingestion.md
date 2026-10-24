@@ -8,6 +8,26 @@ logic itself (classification + threat score) is detailed in
 
 > Pipeline position: **ingest → enrich → store** — all wired and complete.
 
+### Component flowchart
+
+```mermaid
+flowchart TD
+  Client["HTTP client / Swagger"] --> Ctrl["EventIngestionController"]
+  Ctrl -->|"List of SecurityEvent"| Svc["EventIngestionService"]
+  Ctrl -.->|parse failures| Handler["IngestionExceptionHandler"]
+  Svc -->|"InvalidEventException"| Handler
+  Handler --> Err["ErrorResponse 400"]
+  Svc --> Val["Jakarta Validator"]
+  Svc --> Enrich["ThreatScorer + RuleCategory.attackType"]
+  Svc --> Repo["EventRepository"]
+  Enrich --> Enriched["EnrichedEvent"]
+  Repo --> Enriched
+  Repo --> Mem["InMemoryEventRepository"]
+  Repo --> CH["ClickHouseEventRepository"]
+  Svc --> Ctrl
+  Ctrl --> Ok["201 + enriched array"]
+```
+
 ---
 
 ## Endpoint

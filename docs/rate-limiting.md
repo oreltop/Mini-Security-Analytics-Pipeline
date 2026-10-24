@@ -3,6 +3,20 @@
 Protects the **analytics read path** from abusive polling. Ingest is intentionally
 unthrottled so demos / the data generator can load freely.
 
+### Component flowchart
+
+```mermaid
+flowchart TD
+  Req["Incoming HTTP request"] --> Filter["AnalyticsRateLimitFilter"]
+  Filter --> Path{"/v1/stats/**\nor /v1/events/samples?"}
+  Path -->|no| Chain["filterChain → controllers"]
+  Path -->|yes| Limiter["FixedWindowRateLimiter\ntryAcquire(remoteAddr)"]
+  Limiter --> Clock["Clock + in-memory counters"]
+  Limiter -->|allowed| Chain
+  Limiter -->|denied| Rej["429 + Retry-After\n+ ErrorResponse"]
+  Limiter -.->|exception| FailOpen["fail-open → Chain"]
+```
+
 ---
 
 ## Policy

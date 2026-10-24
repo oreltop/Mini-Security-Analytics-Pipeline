@@ -6,6 +6,21 @@ compute a threat score, stamp a server-side receive time, and assemble it into a
 of the pipeline (**ingest → enrich → store**); see [`ingestion.md`](ingestion.md) for
 how it's invoked.
 
+### Component flowchart
+
+```mermaid
+flowchart TD
+  Svc["EventIngestionService"] --> Now["receivedAt = Instant.now"]
+  Svc --> Count["EventRepository.countByClientIpSince"]
+  Svc --> Cat["RuleCategory.attackType"]
+  Svc --> Scorer["ThreatScorer.score"]
+  Now --> Assemble
+  Count --> Scorer
+  Cat --> Assemble["EnrichedEvent"]
+  Scorer --> Assemble
+  Assemble --> Save["EventRepository.save"]
+```
+
 ---
 
 ## 1. Classification (2.1)

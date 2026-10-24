@@ -4,6 +4,21 @@ Storage sits behind the `EventRepository` interface (the swappable seam), with t
 implementations selected by Spring profile. The app stores the *enriched* event
 (original fields + `attackType`/`threatScore`/`receivedAt`).
 
+### Component flowchart
+
+```mermaid
+flowchart TD
+  App["Ingest / Stats / Samples services"] --> Repo["EventRepository"]
+  Repo --> Mem["InMemoryEventRepository\nprofile: !clickhouse"]
+  Repo --> CH["ClickHouseEventRepository\nprofile: clickhouse"]
+  Mem --> Map["ConcurrentHashMap by eventId"]
+  CH --> Cfg["ClickHouseDataSourceConfig"]
+  Cfg --> JDBC["JdbcTemplate"]
+  JDBC --> Table["events MergeTree"]
+  App --> Save["save / count* / stats* / findPage"]
+  Save --> Repo
+```
+
 ## Two implementations
 
 | | Default (in-memory) | ClickHouse |

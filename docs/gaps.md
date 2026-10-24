@@ -4,6 +4,29 @@ Everything consciously **not done yet** — known limitations of current behavio
 hardening, parts not built, optional bonuses, and outstanding deliverables. Each item is a
 deliberate scope choice, not an oversight. Feeds the README's "what I'd improve" section.
 
+### Component flowchart
+
+How this catalog maps onto the system (residuals sit beside finished parts):
+
+```mermaid
+flowchart TD
+  Gaps["docs/gaps.md"] --> Lim["Known limitations table\nbatch / validation / errors"]
+  Gaps --> Hard["Deferred hardening\nOpenAPI / observability / config"]
+  Gaps --> Store["Storage residuals\nbatch insert / TTL / nulls"]
+  Gaps --> Stats["Stats residuals"]
+  Gaps --> Samples["Samples residuals"]
+  Gaps --> Gen["Generator residuals"]
+  Gaps --> RL["Rate-limit residuals"]
+  Gaps --> Bonus["Open bonuses\nalerting / timeseries"]
+  Gaps --> Deliv["Outstanding\nrendered diagram"]
+  Lim --> Ingest["Ingestion / enrichment"]
+  Store --> Storage["EventRepository backends"]
+  Stats --> Analytics["Stats + samples APIs"]
+  Samples --> Analytics
+  RL --> Analytics
+  Gen --> Tools["tools/ generator"]
+```
+
 ## Known limitations (current behaviour)
 
 | # | Area | Current behaviour | Would improve |

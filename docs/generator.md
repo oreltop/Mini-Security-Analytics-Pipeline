@@ -4,6 +4,26 @@ A **bash** tool under `tools/` that builds realistic-looking DLR JSON for load /
 demo testing. It is **not** part of the Spring Boot app (keeps product and
 tooling separate).
 
+### Component flowchart
+
+```mermaid
+flowchart TD
+  CLI["generate-events.sh\n--count --seed --out --post"] --> Loop["For each event"]
+  Loop --> Wave{"Wave slot?"}
+  Wave -->|yes| Burst["Same clientIp + path"]
+  Wave -->|no| Rand["Uniform random IP + path"]
+  Burst --> Emit["emit_event via jq"]
+  Rand --> Emit
+  Emit --> Vocab["Vocabularies\ncategories, actions, paths, UAs…"]
+  Emit --> NDJSON["NDJSON temp file"]
+  NDJSON --> Array["jq -s → JSON array"]
+  Array --> File["--out file / stdout"]
+  Array --> Post{"--post?"}
+  Post -->|yes| Curl["curl POST /v1/events/ingest"]
+  Post -->|no| Done["Done"]
+  Curl --> Done
+```
+
 ---
 
 ## What it does

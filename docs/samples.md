@@ -4,6 +4,23 @@ Paginated retrieval of stored enriched events with optional filters. Filtering,
 sorting, and paging run **in the store** (same Y choice as stats); `SamplesService`
 assembles the envelope.
 
+### Component flowchart
+
+```mermaid
+flowchart TD
+  Client["GET /v1/events/samples"] --> Ctrl["SamplesController"]
+  Ctrl --> Svc["SamplesService.findSamples"]
+  Svc --> Clamp["clamp limit ≤ 100"]
+  Clamp --> Count["countMatching → total"]
+  Clamp --> Page["findPage → items"]
+  Count --> Repo["EventRepository"]
+  Page --> Repo
+  Repo --> Mem["InMemoryEventRepository"]
+  Repo --> CH["ClickHouseEventRepository"]
+  Svc --> Env["SamplesResponse\n{total, limit, offset, items}"]
+  Ctrl --> Env
+```
+
 ---
 
 ## Endpoint

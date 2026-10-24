@@ -4,6 +4,24 @@ Analytics over stored enriched events. One endpoint returns a full summary for a
 configuration (optional) and time range, with aggregations computed **in the store**
 (ClickHouse SQL / in-memory streams) and assembled by `StatsService`.
 
+### Component flowchart
+
+```mermaid
+flowchart TD
+  Client["GET /v1/stats/summary"] --> Ctrl["StatsController"]
+  Ctrl --> Svc["StatsService.summarize"]
+  Svc --> C1["countInRange → totalEvents"]
+  Svc --> C2["statsByCategory → byCategory"]
+  Svc --> C3["countByAction → byAction"]
+  Svc --> C4["topAttackers"]
+  Svc --> C5["topPaths → topTargetedPaths"]
+  C1 & C2 & C3 & C4 & C5 --> Repo["EventRepository"]
+  Repo --> Mem["InMemoryEventRepository"]
+  Repo --> CH["ClickHouseEventRepository"]
+  Svc --> DTO["StatsSummary"]
+  Ctrl --> DTO
+```
+
 ---
 
 ## Endpoint
