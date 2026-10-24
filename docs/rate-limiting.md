@@ -23,7 +23,7 @@ flowchart TD
 
 | | |
 |---|---|
-| Paths | `GET /v1/stats/**`, `GET /v1/events/samples` |
+| Paths | `/v1/stats/**`, `/v1/events/samples` (any HTTP method; exact samples path) |
 | Key | Client IP (`request.getRemoteAddr()`) |
 | Algorithm | Fixed window |
 | Limit | **100 requests / minute / IP** (`app.rate-limit.requests-per-minute`) |

@@ -3,9 +3,10 @@
 Backend take-home: ingest security DLRs, enrich them, store them, and expose
 analytics over REST. Java 21 + Spring Boot 3.3.
 
-Detailed per-step write-ups live under [`docs/`](docs/)
-([ingestion](docs/ingestion.md), [enrichment](docs/enrichment.md),
-[storage](docs/storage.md), [stats](docs/stats.md), [samples](docs/samples.md),
+Detailed write-ups live under [`docs/`](docs/)
+([system paths](docs/system-paths.md), [ingestion](docs/ingestion.md),
+[enrichment](docs/enrichment.md), [storage](docs/storage.md),
+[stats](docs/stats.md), [samples](docs/samples.md),
 [generator](docs/generator.md), [rate-limiting](docs/rate-limiting.md),
 [gaps](docs/gaps.md)).
 
@@ -123,7 +124,8 @@ curl -sS -X POST http://localhost:8080/v1/events/ingest \
 ```
 
 **Pipeline:** transport binding → semantic validation → classification + threat
-score + `receivedAt` → upsert by `eventId` → analytics queries on the same seam.
+score + `receivedAt` → store via `EventRepository` → analytics on the same seam.
+In-memory **upserts** by `eventId`; ClickHouse **appends** (duplicate ids possible).
 
 **Design pillars**
 
@@ -193,8 +195,9 @@ Envelope: `{ total, limit, offset, items }`.
 
 ### Rate limit (bonus)
 
-Stats and samples: **100 requests / minute / client IP**. Over limit → `429` +
-`Retry-After`. Ingest is not limited. See [docs/rate-limiting.md](docs/rate-limiting.md).
+Stats and samples paths: **100 requests / minute / client IP**
+(`app.rate-limit.requests-per-minute`). Over limit → `429` + `Retry-After`.
+Ingest is not limited. See [docs/rate-limiting.md](docs/rate-limiting.md).
 
 ---
 
@@ -223,7 +226,7 @@ Highlights from [docs/gaps.md](docs/gaps.md):
 - Cap batch size; reject empty batches; align batch error indexing
 - Stricter validation (HTTP status range, IP format, timestamp sanity)
 - Unified `ErrorResponse` for more Spring default statuses
-- ClickHouse batched inserts + table TTL
+- ClickHouse batched inserts, table TTL, and `eventId` dedup / upsert
 - Distributed rate-limit store + trusted forwarded IP headers
 - Observability (metrics / structured logs) and richer OpenAPI examples
 - Optional bonuses still open: alerting rules, time-series buckets

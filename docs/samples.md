@@ -33,8 +33,8 @@ flowchart TD
 | `from`, `to` | no | unbounded | Inclusive range on event **`timestamp`** |
 | `category` | no | any | `RuleCategory` enum name |
 | `action` | no | any | `Action` enum name |
-| `limit` | no | `20` | Page size; **clamped** to max `100` |
-| `offset` | no | `0` | Skip this many matching rows |
+| `limit` | no | `20` | Page size; **upper-clamped** to max `100` (no floor — negatives are invalid) |
+| `offset` | no | `0` | Skip this many matching rows (negatives not validated) |
 
 Sort: `timestamp` descending (newest first). Bad ISO-8601 → `400`.
 
@@ -111,4 +111,4 @@ Omit time/filters for “everything” (fine for in-memory; watch cost on ClickH
 ## Status
 
 Part 4 complete (`v0.4-samples`). Part 5 generator: [`generator.md`](generator.md).
-Remaining deliverable: top-level `README.md`. Residuals in [`gaps.md`](gaps.md).
+End-to-end: [`system-paths.md`](system-paths.md). Residuals in [`gaps.md`](gaps.md).

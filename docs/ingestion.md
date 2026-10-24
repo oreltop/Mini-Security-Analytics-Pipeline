@@ -158,9 +158,11 @@ Validation lives in the **core service**, not the controller, so every entry pat
 - `ThreatScorer` — the scoring formula; `RuleCategory.attackType()` — the classification. See enrichment.md.
 
 ### Storage (`com.akamai.miniwsa.storage`)
-- `EventRepository` — the swappable seam: `save`, `findAll`, `countByClientIpSince`.
+- `EventRepository` — the swappable seam. Ingest uses `save`, `findAll`,
+  `countByClientIpSince`; stats/samples methods are listed in [`storage.md`](storage.md).
 - `InMemoryEventRepository` — `@Repository`, `ConcurrentHashMap<String, EnrichedEvent>`
-  keyed by `eventId` (thread-safe; **idempotent upsert** — replays overwrite, never duplicate).
+  keyed by `eventId` (thread-safe; **idempotent upsert** — replays overwrite).
+  ClickHouse is append-only (see storage).
 
 ### Bootstrap
 - `MiniWsaApplication` — `@SpringBootApplication` entry point.
@@ -176,8 +178,9 @@ Validation lives in the **core service**, not the controller, so every entry pat
 - **Single-or-array binding** via `accept-single-value-as-array`, keeping all binding (and
   thus transport error handling) at the Jackson boundary.
 - **Always an array response**, and **atomic** batch (all-or-nothing).
-- **Idempotent upsert** keyed by `eventId` (at-least-once edge delivery).
-- **Storage behind an interface** — in-memory now, columnar/search at scale.
+- **Idempotent upsert by `eventId` on the in-memory profile** (at-least-once edge delivery).
+  ClickHouse appends rows — replays can duplicate.
+- **Storage behind an interface** — in-memory default, ClickHouse on the `clickhouse` profile.
 
 ---
 
@@ -220,8 +223,9 @@ curl -i -X POST http://localhost:8080/v1/events/ingest \
 | Test | Covers |
 |---|---|
 | `SecurityEventDeserializationTest` | sample DLR JSON → typed model (enums mapped) |
-| `EventIngestionServiceTest` | validation; enrich+store; repeat-offender; batch atomicity; idempotent upsert |
+| `EventIngestionServiceTest` | validation; enrich+store; repeat-offender; batch atomicity; in-memory upsert |
 | `EventIngestionControllerTest` | API end-to-end: single `201`; **batch `201`**; semantic/numeric/bad-enum/malformed `400` |
+| `IngestionExceptionHandlerTest` | clean `500` body (cause not leaked) |
 | `InMemoryEventRepositoryTest` | store: empty on creation; save/read back; count-by-IP-since |
 | `RuleCategoryTest`, `ThreatScorerTest` | enrichment (see enrichment.md) |
 
@@ -248,12 +252,12 @@ Then open <http://localhost:8080/swagger-ui/index.html>.
   would add a cap and return `413 Payload Too Large` past it.
 - **Batch error reporting** — transport errors are indexed (`[0].rule.category`) but semantic
   errors are not (`eventId`); per-index semantic errors would be a nice addition.
-- **Intra-batch duplicate `eventId`** — a batch with the same `eventId` twice returns both enriched
-  in the response, but storage (keyed by `eventId`) keeps one, so response count can exceed stored count.
+- **Intra-batch duplicate `eventId`** — response always includes both enriched events.
+  In-memory keeps one (response count can exceed stored); ClickHouse stores both rows.
 - **Repeat-offender count race** — the count-then-save step isn't atomic, so concurrent requests from
   the same IP can momentarily under-count (a bonus missed once). Benign; a real store would do this atomically.
 
 ## Status
 
-Parts 1–5 are complete. Remaining deliverable: top-level `README.md`. See
-[`stats.md`](stats.md), [`samples.md`](samples.md), [`generator.md`](generator.md).
+Parts 1–5 and the rate-limit bonus are complete. End-to-end paths:
+[`system-paths.md`](system-paths.md). Residuals: [`gaps.md`](gaps.md).

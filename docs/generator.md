@@ -18,7 +18,7 @@ flowchart TD
   Emit --> NDJSON["NDJSON temp file"]
   NDJSON --> Array["jq -s → JSON array"]
   Array --> File["--out file / stdout"]
-  Array --> Post{"--post?"}
+  File --> Post{"--post?"}
   Post -->|yes| Curl["curl POST /v1/events/ingest"]
   Post -->|no| Done["Done"]
   Curl --> Done
@@ -31,6 +31,7 @@ flowchart TD
 - Emits a **JSON array** of security events matching the ingest schema
 - **Uniform random** background traffic across categories / actions / paths / IPs
 - **Attack waves**: every 100 events, a burst of 25 sharing the same `clientIp` + `path`
+  (only when `--count` ≥ 25)
 - Optional **`--post`** to `POST /v1/events/ingest`
 - **`--seed`** for reproducible runs (RANDOM advanced in-process, not in subshells)
 
@@ -86,6 +87,5 @@ Checks: schema-shaped single event, count/seed determinism, wave burst ≥ 25,
 
 ## Status
 
-Part 5 complete (`v0.5-generator`). Remaining submission piece: top-level
-`README.md` (build/run, API, architecture, storage justification, improve /
-challenges — raw material in `docs/`).
+Part 5 complete (`v0.5-generator`). Top-level [`README.md`](../README.md) covers
+build/run and architecture. Residuals in [`gaps.md`](gaps.md).

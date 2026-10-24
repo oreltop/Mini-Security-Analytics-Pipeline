@@ -130,7 +130,8 @@ from the same batch that were already saved — which is correct.
   weights are tunable *policy*, so they live in the scorer, not on enums).
 - **Repeat-offender on server `receivedAt`**, not client `timestamp` — zero-trust.
 - **`EnrichedEvent` composition + `@JsonUnwrapped`** — no duplication, flat spec-matching JSON.
-- **Idempotent upsert** means replays of one `eventId` can't inflate the repeat-offender count.
+- **In-memory upsert by `eventId`** means replays of one id can't inflate the repeat-offender
+  count on the default profile. On ClickHouse, replays append rows and *can* inflate the count.
 
 ---
 
@@ -140,7 +141,7 @@ from the same batch that were already saved — which is correct.
 |---|---|
 | `RuleCategoryTest` | all 7 `category → attackType` mappings |
 | `ThreatScorerTest` | severity/action/path weights; repeat-offender threshold (5 vs 6) |
-| `EventIngestionServiceTest` | enrich+store of a valid event; repeat-offender end-to-end; upsert doesn't inflate |
+| `EventIngestionServiceTest` | enrich+store of a valid event; repeat-offender end-to-end; in-memory upsert doesn't inflate |
 | `InMemoryEventRepositoryTest` | `countByClientIpSince` (IP + time window) |
 
 ---

@@ -34,14 +34,14 @@ flowchart TD
 | 1 | Batch | empty batch `[]` → `201 []` (no-op) | reject with `400` |
 | 2 | Batch | no max batch size — a 10k-event POST is processed whole | cap size, return `413` past it |
 | 3 | Batch errors | transport errors are indexed (`[0].rule.category`), semantic errors are not (`eventId`) | thread the batch index through semantic validation |
-| 4 | Batch | intra-batch duplicate `eventId` returns both but stores one (response count > stored) | dedupe within the batch, or reject |
+| 4 | Batch | intra-batch duplicate `eventId`: response returns both; **in-memory** keeps one (count can diverge); **ClickHouse** stores both rows | dedupe within the batch, or reject; CH: ReplacingMergeTree / upsert |
 | 5 | Enrichment | repeat-offender count-then-save isn't atomic → benign under-count under concurrency | atomic count+insert (a real store does this) |
 | 6 | Validation | `statusCode` only `@Positive` (999 accepted) | `@Min(100) @Max(599)` |
 | 7 | Enrichment | path bonus is a substring match (`/administrator` triggers `/admin`) | match path segments |
 | 8 | Validation | no IP-format check (`clientIp:"not-an-ip"` accepted) | validate IPv4/IPv6 |
 | 9 | Validation | no timestamp sanity bounds (far-future/ancient accepted) | reject implausible times |
 | 10 | Errors | `405`/`415` use Spring's default body, not our `ErrorResponse` | map them into the unified shape |
-| 11 | Docs | bad-timestamp message leaks the Java type ("invalid value for Instant") | friendlier "must be an ISO-8601 timestamp" |
+| 11 | Docs | ingest **body** bad-timestamp message leaks the Java type ("invalid value for Instant"); stats/samples **query** params already use a friendlier message | same friendly wording on the body path |
 | 12 | Enums | enum matching is case-sensitive (`"deny"` rejected) | by design; could accept case-insensitively |
 | 13 | Stats | missing `from`/`to` → Spring's default 400 body, not `ErrorResponse` | map into the unified shape (same family as #10) |
 | 14 | Stats | top-N ties (equal counts) — order may differ in-memory vs ClickHouse | stable secondary sort (e.g. IP/path asc) |
@@ -65,6 +65,8 @@ remains the zero-infra default. Remaining:
 - **Null optional fields round-trip as empty strings** in ClickHouse (use `Nullable(...)` for exact).
 - **In-memory default is not durable** (lost on restart) — fine for dev; use the ClickHouse profile
   for persistence.
+- **No `eventId` upsert on ClickHouse** — plain `INSERT` into `MergeTree`; replays append duplicates
+  (in-memory map upserts by id).
 
 ## Stats (Part 3 — done; residual)
 
@@ -78,7 +80,8 @@ remains the zero-infra default. Remaining:
 
 - Unbounded queries (no `from`/`to`) can scan the whole table on ClickHouse — fine for the mini;
   production would require a range or a max lookback.
-- Negative / zero `limit` or `offset` not validated (passed through; odd pages possible).
+- Negative / zero `limit` or `offset` not validated (only an upper clamp of 100). Negatives can
+  throw in-stream (`skip`/`limit`) and surface as a catch-all `500`.
 - Invalid enum query params (`category=foo`) use Spring's default 400 body, not `ErrorResponse`.
 
 ## Generator (Part 5 — done; residual)
@@ -90,7 +93,7 @@ remains the zero-infra default. Remaining:
 
 ## Parts not yet built
 
-_(none — Parts 1–5 are implemented; README remains as a deliverable below.)_
+_(none — Parts 1–5 and the rate-limit bonus are implemented.)_
 
 ## Rate limiting (bonus — done; residual)
 

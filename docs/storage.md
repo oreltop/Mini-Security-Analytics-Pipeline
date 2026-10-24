@@ -15,9 +15,18 @@ flowchart TD
   CH --> Cfg["ClickHouseDataSourceConfig"]
   Cfg --> JDBC["JdbcTemplate"]
   JDBC --> Table["events MergeTree"]
-  App --> Save["save / count* / stats* / findPage"]
-  Save --> Repo
+  App --> Api["save / findAll / count* / stats* / top* / findPage"]
+  Api --> Repo
 ```
+
+## Seam (`EventRepository`)
+
+| Method | Used by |
+|---|---|
+| `save`, `findAll` | ingest |
+| `countByClientIpSince` | enrichment (repeat-offender) |
+| `countInRange`, `statsByCategory`, `countByAction`, `topAttackers`, `topPaths` | stats |
+| `countMatching`, `findPage` | samples |
 
 ## Two implementations
 
@@ -26,6 +35,7 @@ flowchart TD
 | Profile | `!clickhouse` (default) | `clickhouse` |
 | Class | `InMemoryEventRepository` | `ClickHouseEventRepository` |
 | Backing | `ConcurrentHashMap` keyed by `eventId` | ClickHouse `events` table (`MergeTree`) |
+| Duplicate `eventId` | **upsert** (last write wins) | **append** (duplicate rows kept) |
 | Infra | none — always boots | ClickHouse server |
 | Use | local dev, the fast test suite | production-like / the full-stack bonus |
 
@@ -68,5 +78,6 @@ Credentials/URL for the app come from the environment (`SPRING_DATASOURCE_URL`, 
 
 ## Limitations
 
-See `gaps.md` — notably: single-row INSERTs (batching would suit ClickHouse better at scale),
-no retention/TTL, and null optional fields round-trip as empty strings.
+See [`gaps.md`](gaps.md) — notably: single-row INSERTs (batching would suit ClickHouse better at
+scale), no retention/TTL, null optional fields round-trip as empty strings, and ClickHouse
+append-only storage (no `eventId` upsert / dedup).

@@ -33,7 +33,10 @@ flowchart TD
 | `from`, `to` | yes | Inclusive range on the event **`timestamp`** (not `receivedAt`) |
 | `configId` | no | Omit to aggregate across all configurations |
 
-Bad / missing timestamps → `400` (via the existing exception handler). Empty range → zeros / empty maps / empty lists.
+Bad ISO-8601 → `400` via `IngestionExceptionHandler` (`ErrorResponse`). Missing required
+`from`/`to` → Spring's default `400` body (not our shape — see [`gaps.md`](gaps.md) #13).
+Empty range → zeros / empty maps / empty lists. Categories and actions with zero events are
+omitted from the maps (not zero-filled).
 
 ---
 
@@ -42,7 +45,8 @@ Bad / missing timestamps → `400` (via the existing exception handler). Empty r
 ```
 configId, timeRange { from, to }, totalEvents,
 byCategory { CATEGORY → { count, avgThreatScore } },
-byAction { DENY|ALERT|MONITOR → count },
+byAction { ACTION → count }   // only actions present in the window
+
 topAttackers [ { clientIp, count, avgThreatScore } ]   // top 10 by count
 topTargetedPaths [ { path, count } ]                   // top 10 by count
 ```
@@ -118,5 +122,5 @@ Omit `configId` to roll up all configs.
 ## Status
 
 Part 3 complete (`v0.3-stats`). See also [`samples.md`](samples.md),
-[`generator.md`](generator.md). Remaining deliverable: top-level `README.md`.
+[`generator.md`](generator.md), [`system-paths.md`](system-paths.md).
 Stats follow-ups in [`gaps.md`](gaps.md).
