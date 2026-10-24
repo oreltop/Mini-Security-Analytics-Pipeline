@@ -20,6 +20,9 @@ deliberate scope choice, not an oversight. Feeds the README's "what I'd improve"
 | 10 | Errors | `405`/`415` use Spring's default body, not our `ErrorResponse` | map them into the unified shape |
 | 11 | Docs | bad-timestamp message leaks the Java type ("invalid value for Instant") | friendlier "must be an ISO-8601 timestamp" |
 | 12 | Enums | enum matching is case-sensitive (`"deny"` rejected) | by design; could accept case-insensitively |
+| 13 | Stats | missing `from`/`to` → Spring's default 400 body, not `ErrorResponse` | map into the unified shape (same family as #10) |
+| 14 | Stats | top-N ties (equal counts) — order may differ in-memory vs ClickHouse | stable secondary sort (e.g. IP/path asc) |
+| 15 | Stats | categories/actions with zero events are omitted from maps | emit zeros for all enum values if dashboards need a fixed shape |
 
 ## Deferred hardening / nice-to-haves
 
@@ -28,7 +31,8 @@ deliberate scope choice, not an oversight. Feeds the README's "what I'd improve"
 - **Richer OpenAPI** — only the `201` status is corrected; could add `@Operation`/`@Schema`
   descriptions and example payloads per endpoint.
 - **Observability** — no metrics/structured logging/tracing (e.g. Micrometer, request logging).
-- **Config** — no profiles, no externalised limits/weights (threat weights are constants in code).
+- **Config** — `clickhouse` profile exists for storage; threat weights / top-N / batch caps are
+  still constants in code (not externalised).
 
 ## Storage
 
@@ -45,7 +49,7 @@ remains the zero-infra default. Remaining:
 
 - Time range is on event **`timestamp`** (chosen deliberately). Client-supplied times are spoofable
   and late arrivals can mutate past windows; a hardened system might watermark or offer a
-  `timeField` param.
+  `timeField` param. See also table rows #13–#15.
 - `from > to` is not rejected explicitly (yields an empty summary).
 - Top-N limit is fixed at 10 (per assignment); not query-param configurable.
 
