@@ -1,0 +1,57 @@
+# Gaps & deferred work
+
+Everything consciously **not done yet** — known limitations of current behaviour, deferred
+hardening, parts not built, optional bonuses, and outstanding deliverables. Each item is a
+deliberate scope choice, not an oversight. Feeds the README's "what I'd improve" section.
+
+## Known limitations (current behaviour)
+
+| # | Area | Current behaviour | Would improve |
+|---|---|---|---|
+| 1 | Batch | empty batch `[]` → `201 []` (no-op) | reject with `400` |
+| 2 | Batch | no max batch size — a 10k-event POST is processed whole | cap size, return `413` past it |
+| 3 | Batch errors | transport errors are indexed (`[0].rule.category`), semantic errors are not (`eventId`) | thread the batch index through semantic validation |
+| 4 | Batch | intra-batch duplicate `eventId` returns both but stores one (response count > stored) | dedupe within the batch, or reject |
+| 5 | Enrichment | repeat-offender count-then-save isn't atomic → benign under-count under concurrency | atomic count+insert (a real store does this) |
+| 6 | Validation | `statusCode` only `@Positive` (999 accepted) | `@Min(100) @Max(599)` |
+| 7 | Enrichment | path bonus is a substring match (`/administrator` triggers `/admin`) | match path segments |
+| 8 | Validation | no IP-format check (`clientIp:"not-an-ip"` accepted) | validate IPv4/IPv6 |
+| 9 | Validation | no timestamp sanity bounds (far-future/ancient accepted) | reject implausible times |
+| 10 | Errors | `405`/`415` use Spring's default body, not our `ErrorResponse` | map them into the unified shape |
+| 11 | Docs | bad-timestamp message leaks the Java type ("invalid value for Instant") | friendlier "must be an ISO-8601 timestamp" |
+| 12 | Enums | enum matching is case-sensitive (`"deny"` rejected) | by design; could accept case-insensitively |
+
+## Deferred hardening / nice-to-haves
+
+- **Virtual threads not enabled** — we chose Java 21 for Loom but haven't flipped
+  `spring.threads.virtual.enabled=true`. Cheap throughput win for the ingestion workload.
+- **Richer OpenAPI** — only the `201` status is corrected; could add `@Operation`/`@Schema`
+  descriptions and example payloads per endpoint.
+- **Observability** — no metrics/structured logging/tracing (e.g. Micrometer, request logging).
+- **Config** — no profiles, no externalised limits/weights (threat weights are constants in code).
+
+## Storage
+
+- **In-memory only** — not durable (data lost on restart); single-node. The `EventRepository`
+  seam is ready; a real engine (ClickHouse first choice — see `../hints/storage-engine-choice.md`)
+  and a `docker-compose` DB service are deferred.
+- **No retention/TTL** — events accumulate unbounded.
+
+## Parts not yet built
+
+- **Part 3 — Stats API** (`GET /v1/stats/summary`) — not started. Open decision: time-range filters
+  on event `timestamp` vs `receivedAt`.
+- **Part 4 — Samples API** (`GET /v1/events/samples`) — not started (pagination, filters, sort).
+- **Part 5 — Data generator** — not started (realistic events + attack waves, ~10k configurable).
+
+## Bonus challenges (optional, not started)
+
+- **Alerting** — `POST /v1/alerts/define` + `GET /v1/alerts/evaluate`.
+- **Time-series** — `GET /v1/stats/timeseries?interval={1m|5m|1h}`.
+- **Rate limiting** — `429` on stats/samples (e.g. 100 req/min/IP).
+
+## Outstanding deliverables
+
+- **`README.md`** — top-level build/run, API docs (curl), architecture overview + diagram, storage
+  justification, "what I'd improve", "challenges faced". Raw material exists in `docs/` and `hints/`.
+- **Architecture diagram** — ASCII diagrams exist in `docs/`; a rendered diagram is a plus.
