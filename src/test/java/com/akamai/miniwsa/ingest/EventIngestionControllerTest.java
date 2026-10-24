@@ -1,5 +1,6 @@
 package com.akamai.miniwsa.ingest;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -136,6 +137,18 @@ class EventIngestionControllerTest {
                 .andExpect(jsonPath("$[0].eventId").value("evt-00132"))
                 .andExpect(jsonPath("$[1].eventId").value("evt-00133"))
                 .andExpect(jsonPath("$[0].attackType").value("SQL/Command Injection"));
+    }
+
+    @Test
+    void rejectsUnknownFieldWith400() throws Exception {
+        // Strict schema: an unrecognized field must be rejected, not silently dropped.
+        String withUnknown = VALID_EVENT.replaceFirst("\\{", "{\n  \"bogusField\": \"x\",");
+
+        mockMvc.perform(post("/v1/events/ingest")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(withUnknown))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[*].field", hasItem(containsString("bogusField"))));
     }
 
     @Test

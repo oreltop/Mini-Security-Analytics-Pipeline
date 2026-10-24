@@ -3,6 +3,7 @@ package com.akamai.miniwsa.ingest;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import com.fasterxml.jackson.databind.exc.MismatchedInputException;
+import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -62,6 +63,9 @@ public class IngestionExceptionHandler extends ResponseEntityExceptionHandler {
         Throwable cause = ex.getCause();
         if (cause instanceof InvalidFormatException ife) {
             return new ValidationError(path(ife.getPath()), invalidValueMessage(ife));
+        }
+        if (cause instanceof UnrecognizedPropertyException upe) {
+            return new ValidationError(path(upe.getPath()), "unknown field");
         }
         if (cause instanceof MismatchedInputException mie) {
             return new ValidationError(path(mie.getPath()), "invalid or missing value");

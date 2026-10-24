@@ -97,7 +97,7 @@ HTTP JSON  (a single object OR an array)
 
 | Check | Where | Catches |
 |---|---|---|
-| ① Transport | `IngestionExceptionHandler` (`HttpMessageNotReadableException`) | unknown enum, bad timestamp, malformed JSON — things Jackson can't type, *before* the core runs |
+| ① Transport | `IngestionExceptionHandler` (`HttpMessageNotReadableException`) | unknown enum, bad timestamp, unknown/extra field, malformed JSON — things Jackson rejects *before* the core runs |
 | ② Semantic — presence | core `Validator` (`@NotBlank`/`@NotNull`) | missing/blank required fields, null nested objects |
 | ② Semantic — numeric | core `Validator` (`@NotNull` + `@Positive`/`@PositiveOrZero`) | `configId`/`statusCode`/`requestSize`/`responseSize` — **boxed** types so an *omitted* number isn't silently `0` |
 
@@ -188,6 +188,7 @@ curl -i -X POST http://localhost:8080/v1/events/ingest \
 | omitted `configId` / `statusCode` | `{"errors":[{"field":"configId",...},{"field":"statusCode",...}]}` |
 | `rule.category:"BANANA"` | `{"errors":[{"field":"[0].rule.category","message":"must be one of [...]"}]}` |
 | `timestamp:"not-a-date"` | `{"errors":[{"field":"timestamp","message":"invalid value for Instant"}]}` |
+| unknown/extra field | `{"errors":[{"field":"[0].bogusField","message":"unknown field"}]}` |
 | truncated JSON | `{"errors":[{"field":"body","message":"malformed JSON request body"}]}` |
 | batch with any invalid event | `400`, nothing stored (atomic) |
 | unexpected server error | `500` `{"errors":[{"message":"Internal server error"}]}` (cause logged, never leaked) |
@@ -227,6 +228,10 @@ Then open <http://localhost:8080/swagger-ui/index.html>.
   would add a cap and return `413 Payload Too Large` past it.
 - **Batch error reporting** — transport errors are indexed (`[0].rule.category`) but semantic
   errors are not (`eventId`); per-index semantic errors would be a nice addition.
+- **Intra-batch duplicate `eventId`** — a batch with the same `eventId` twice returns both enriched
+  in the response, but storage (keyed by `eventId`) keeps one, so response count can exceed stored count.
+- **Repeat-offender count race** — the count-then-save step isn't atomic, so concurrent requests from
+  the same IP can momentarily under-count (a bonus missed once). Benign; a real store would do this atomically.
 
 ## Status
 
