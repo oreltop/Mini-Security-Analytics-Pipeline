@@ -4,12 +4,10 @@ import com.akamai.miniwsa.domain.Action;
 import com.akamai.miniwsa.domain.RuleCategory;
 import com.akamai.miniwsa.storage.EventRepository;
 import java.time.Instant;
-import java.util.List;
 import org.springframework.stereotype.Service;
 
 /**
- * Assembles the samples envelope. Pagination items land in a later cycle; this
- * cycle wires total via {@code countMatching} and returns an empty page.
+ * Assembles the samples envelope from {@code countMatching} + {@code findPage}.
  */
 @Service
 public class SamplesService {
@@ -29,6 +27,7 @@ public class SamplesService {
             int limit,
             int offset) {
         long total = repository.countMatching(configId, from, to, category, action);
-        return new SamplesResponse(total, limit, offset, List.of());
+        var items = repository.findPage(configId, from, to, category, action, limit, offset);
+        return new SamplesResponse(total, limit, offset, items);
     }
 }

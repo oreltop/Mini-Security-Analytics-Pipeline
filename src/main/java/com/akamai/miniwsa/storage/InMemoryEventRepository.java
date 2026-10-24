@@ -111,6 +111,23 @@ public class InMemoryEventRepository implements EventRepository {
                 .count();
     }
 
+    @Override
+    public List<EnrichedEvent> findPage(
+            Long configId,
+            Instant from,
+            Instant to,
+            RuleCategory category,
+            Action action,
+            int limit,
+            int offset) {
+        return eventsById.values().stream()
+                .filter(e -> matches(e, configId, from, to, category, action))
+                .sorted(Comparator.comparing((EnrichedEvent e) -> e.event().timestamp()).reversed())
+                .skip(offset)
+                .limit(limit)
+                .toList();
+    }
+
     private static boolean matches(
             EnrichedEvent enriched,
             Long configId,

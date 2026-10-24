@@ -33,7 +33,8 @@ class SamplesControllerTest {
                 .andExpect(jsonPath("$.limit").value(20))
                 .andExpect(jsonPath("$.offset").value(0))
                 .andExpect(jsonPath("$.items").isArray())
-                .andExpect(jsonPath("$.items").isEmpty());
+                .andExpect(jsonPath("$.items.length()").value(2))
+                .andExpect(jsonPath("$.items[0].eventId").exists());
     }
 
     private void ingest(String eventId) throws Exception {

@@ -89,6 +89,22 @@ class InMemoryEventRepositoryTest {
     }
 
     @Test
+    void findPageReturnsNewestFirstWithLimitAndOffset() {
+        Instant t1 = Instant.parse("2026-05-20T10:00:00Z");
+        Instant t2 = Instant.parse("2026-05-20T11:00:00Z");
+        Instant t3 = Instant.parse("2026-05-20T12:00:00Z");
+        repository.save(enrichedWith("old", 1L, t1));
+        repository.save(enrichedWith("mid", 1L, t2));
+        repository.save(enrichedWith("new", 1L, t3));
+
+        var page = repository.findPage(1L, null, null, null, null, 2, 0);
+        assertThat(page).extracting(e -> e.event().eventId()).containsExactly("new", "mid");
+
+        var secondPage = repository.findPage(1L, null, null, null, null, 2, 2);
+        assertThat(secondPage).extracting(e -> e.event().eventId()).containsExactly("old");
+    }
+
+    @Test
     void aggregatesStatsByCategory() {
         Instant base = Instant.parse("2026-05-20T12:00:00Z");
         repository.save(enrichedCat("a", 1L, base, RuleCategory.INJECTION, 80));

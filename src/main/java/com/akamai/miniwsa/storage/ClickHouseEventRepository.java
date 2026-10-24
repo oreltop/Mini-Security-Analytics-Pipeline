@@ -211,6 +211,24 @@ public class ClickHouseEventRepository implements EventRepository {
         return count == null ? 0L : count.longValue();
     }
 
+    @Override
+    public List<EnrichedEvent> findPage(
+            Long configId,
+            Instant from,
+            Instant to,
+            RuleCategory category,
+            Action action,
+            int limit,
+            int offset) {
+        StringBuilder sql = new StringBuilder("SELECT * FROM events WHERE 1 = 1");
+        List<Object> args = new ArrayList<>();
+        appendSampleFilters(sql, args, configId, from, to, category, action);
+        sql.append(" ORDER BY timestamp DESC LIMIT ? OFFSET ?");
+        args.add(limit);
+        args.add(offset);
+        return jdbcTemplate.query(sql.toString(), enrichedEventRowMapper(), args.toArray());
+    }
+
     private static void appendSampleFilters(
             StringBuilder sql,
             List<Object> args,

@@ -66,4 +66,17 @@ public interface EventRepository {
      */
     long countMatching(
             Long configId, Instant from, Instant to, RuleCategory category, Action action);
+
+    /**
+     * Page of enriched events matching optional filters, newest {@code timestamp}
+     * first. Backs samples pagination {@code items}.
+     */
+    List<EnrichedEvent> findPage(
+            Long configId,
+            Instant from,
+            Instant to,
+            RuleCategory category,
+            Action action,
+            int limit,
+            int offset);
 }
