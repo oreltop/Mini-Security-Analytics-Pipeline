@@ -32,10 +32,14 @@ deliberate scope choice, not an oversight. Feeds the README's "what I'd improve"
 
 ## Storage
 
-- **In-memory only** — not durable (data lost on restart); single-node. The `EventRepository`
-  seam is ready; a real engine (ClickHouse first choice — see `../hints/storage-engine-choice.md`)
-  and a `docker-compose` DB service are deferred.
-- **No retention/TTL** — events accumulate unbounded.
+ClickHouse is now implemented behind the `clickhouse` profile (see `storage.md`); in-memory
+remains the zero-infra default. Remaining:
+- **Single-row INSERTs** — `save` inserts one row at a time; ClickHouse favours batched inserts for
+  throughput. Would batch (and/or async insert) at scale.
+- **No retention/TTL** — events accumulate unbounded (ClickHouse `TTL` clauses would help).
+- **Null optional fields round-trip as empty strings** in ClickHouse (use `Nullable(...)` for exact).
+- **In-memory default is not durable** (lost on restart) — fine for dev; use the ClickHouse profile
+  for persistence.
 
 ## Parts not yet built
 
