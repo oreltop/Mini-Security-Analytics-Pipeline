@@ -107,7 +107,7 @@ from the same batch that were already saved — which is correct.
 
 ---
 
-## Design decisions (full rationale in `hints/enrichment-scoring.md`, `hints/domain-modeling.md`)
+## Design decisions
 
 - **Whole scoring formula in `ThreatScorer`; count passed in** — cohesive policy, pure/testable
   scorer; the store query is the service's job.

@@ -21,9 +21,9 @@ database to boot**; the `clickhouse` profile wires its own `DataSource` + `JdbcT
 ## Why ClickHouse
 
 The workload is append-heavy, immutable, time-series security events read by analytical
-aggregations (stats) and filtered scans (samples) — a columnar-OLAP fit. Full reasoning and the
-ClickHouse / Elasticsearch / Postgres comparison are in the engine-choice notes. At real WSA scale
-you'd run ClickHouse; in-memory is the zero-infra default for development.
+aggregations (stats) and filtered scans (samples) — a columnar-OLAP fit. ClickHouse is chosen over
+a search engine (Elasticsearch) or a row store (Postgres) for aggregation throughput on that
+workload at scale. In-memory is the zero-infra default for development.
 
 ## How to run
 

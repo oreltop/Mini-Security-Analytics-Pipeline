@@ -57,5 +57,5 @@ remains the zero-infra default. Remaining:
 ## Outstanding deliverables
 
 - **`README.md`** — top-level build/run, API docs (curl), architecture overview + diagram, storage
-  justification, "what I'd improve", "challenges faced". Raw material exists in `docs/` and `hints/`.
+  justification, "what I'd improve", "challenges faced". Raw material exists in `docs/`.
 - **Architecture diagram** — ASCII diagrams exist in `docs/`; a rendered diagram is a plus.

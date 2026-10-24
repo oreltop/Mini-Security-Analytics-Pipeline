@@ -19,8 +19,8 @@ import org.springframework.stereotype.Repository;
 /**
  * ClickHouse-backed {@link EventRepository}, active under the "clickhouse" profile.
  * Columnar OLAP store suited to the analytical, append-heavy workload (see
- * ../hints/storage-engine-choice.md). Stores the flattened enriched event; the
- * DateTime64 columns are UTC, so Instants are converted via UTC LocalDateTime.
+ * docs/storage.md). Stores the flattened enriched event; the DateTime64 columns
+ * are UTC, so Instants are converted via UTC LocalDateTime.
  */
 @Repository
 @Profile("clickhouse")

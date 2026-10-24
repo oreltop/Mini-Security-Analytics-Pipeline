@@ -147,7 +147,7 @@ Validation lives in the **core service**, not the controller, so every entry pat
 
 ---
 
-## Design decisions (headlines — full rationale in `hints/`)
+## Design decisions (headlines)
 
 - **Typed, immutable domain** (records + enums): deserialization enforces closed value sets.
 - **Zero-trust validation in the core**, not the controller.
