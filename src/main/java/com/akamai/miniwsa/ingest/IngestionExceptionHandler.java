@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import com.fasterxml.jackson.databind.exc.MismatchedInputException;
 import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
+import java.time.format.DateTimeParseException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -49,6 +50,13 @@ public class IngestionExceptionHandler extends ResponseEntityExceptionHandler {
             HttpStatusCode status, WebRequest request) {
         ErrorResponse body = new ErrorResponse(List.of(describe(ex)));
         return new ResponseEntity<>(body, HttpStatus.BAD_REQUEST);
+    }
+
+    /** A query parameter that isn't a valid ISO-8601 instant (e.g. stats from/to). */
+    @ExceptionHandler(DateTimeParseException.class)
+    public ResponseEntity<ErrorResponse> handleBadTimestamp(DateTimeParseException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse(List.of(
+                new ValidationError("timestamp", "must be an ISO-8601 instant, e.g. 2026-05-20T14:32:10Z"))));
     }
 
     /** Anything unexpected becomes a clean 500 that doesn't leak internals. */
