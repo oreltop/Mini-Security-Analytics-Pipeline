@@ -1,0 +1,26 @@
+CREATE TABLE IF NOT EXISTS events (
+    eventId String,
+    timestamp DateTime64(3, 'UTC'),
+    configId Int64,
+    policyId String,
+    clientIp String,
+    hostname String,
+    path String,
+    method String,
+    statusCode Int32,
+    userAgent String,
+    ruleId String,
+    ruleName String,
+    ruleMessage String,
+    severity String,
+    category String,
+    action String,
+    country String,
+    city String,
+    requestSize Int64,
+    responseSize Int64,
+    attackType String,
+    threatScore UInt8,
+    receivedAt DateTime64(3, 'UTC')
+) ENGINE = MergeTree
+ORDER BY (configId, timestamp)

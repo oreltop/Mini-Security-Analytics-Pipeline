@@ -1,0 +1,119 @@
+package com.akamai.miniwsa.storage;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.assertj.core.api.Assertions.assertThat;
+
+import com.akamai.miniwsa.domain.Action;
+import com.akamai.miniwsa.domain.EnrichedEvent;
+import com.akamai.miniwsa.domain.GeoLocation;
+import com.akamai.miniwsa.domain.Rule;
+import com.akamai.miniwsa.domain.RuleCategory;
+import com.akamai.miniwsa.domain.SecurityEvent;
+import com.akamai.miniwsa.domain.Severity;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.testcontainers.clickhouse.ClickHouseContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
+
+/**
+ * Integration test for the ClickHouse repository against a real ClickHouse
+ * (Testcontainers). Tagged "integration" so it is excluded from the default
+ * `mvn test`; run with `-Pintegration`. Exercises the same contract as the
+ * in-memory repository.
+ */
+@Tag("integration")
+@Testcontainers
+class ClickHouseEventRepositoryTest {
+
+    // The clickhouse-server image gives the "default" user a password by default, so we
+    // set a known one (passed to the image as CLICKHOUSE_PASSWORD) rather than rely on empty.
+    @Container
+    static final ClickHouseContainer CLICKHOUSE =
+            new ClickHouseContainer(DockerImageName.parse("clickhouse/clickhouse-server:24.3"))
+                    .withUsername("default")
+                    .withPassword("test");
+
+    private static JdbcTemplate jdbcTemplate;
+
+    private ClickHouseEventRepository repository;
+
+    @BeforeAll
+    static void startAndMigrate() throws Exception {
+        DriverManagerDataSource dataSource = new DriverManagerDataSource(CLICKHOUSE.getJdbcUrl());
+        dataSource.setDriverClassName(CLICKHOUSE.getDriverClassName());
+        dataSource.setUsername(CLICKHOUSE.getUsername());
+        // Only set a password when there is one; an empty-string password is sent as a
+        // (wrong) credential that the no-password "default" user rejects.
+        if (!CLICKHOUSE.getPassword().isEmpty()) {
+            dataSource.setPassword(CLICKHOUSE.getPassword());
+        }
+        jdbcTemplate = new JdbcTemplate(dataSource);
+
+        String ddl = new String(
+                ClickHouseEventRepositoryTest.class.getResourceAsStream("/clickhouse-schema.sql").readAllBytes(),
+                UTF_8);
+        jdbcTemplate.execute(ddl);
+    }
+
+    @BeforeEach
+    void freshTable() {
+        jdbcTemplate.execute("TRUNCATE TABLE events");
+        repository = new ClickHouseEventRepository(jdbcTemplate);
+    }
+
+    @Test
+    void savedEventCanBeReadBack() {
+        EnrichedEvent event = sampleEnriched("evt-1", "1.1.1.1", Instant.now().truncatedTo(ChronoUnit.MILLIS));
+
+        repository.save(event);
+
+        assertThat(repository.findAll()).hasSize(1);
+        EnrichedEvent stored = repository.findAll().get(0);
+        assertThat(stored.event().eventId()).isEqualTo("evt-1");
+        assertThat(stored.event().clientIp()).isEqualTo("1.1.1.1");
+        assertThat(stored.attackType()).isEqualTo("SQL/Command Injection");
+        assertThat(stored.threatScore()).isEqualTo(75);
+    }
+
+    @Test
+    void countsOnlyMatchingIpWithinWindow() {
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
+        repository.save(sampleEnriched("a", "1.1.1.1", now));
+        repository.save(sampleEnriched("b", "1.1.1.1", now.minus(Duration.ofMinutes(5))));
+        repository.save(sampleEnriched("c", "2.2.2.2", now));
+        repository.save(sampleEnriched("d", "1.1.1.1", now.minus(Duration.ofMinutes(20))));
+
+        long count = repository.countByClientIpSince("1.1.1.1", now.minus(Duration.ofMinutes(10)));
+
+        assertThat(count).isEqualTo(2);
+    }
+
+    private static EnrichedEvent sampleEnriched(String id, String clientIp, Instant receivedAt) {
+        SecurityEvent event = new SecurityEvent(
+                id,
+                Instant.parse("2026-05-20T14:32:10Z"),
+                14227L,
+                "pol_web1",
+                clientIp,
+                "www.example.com",
+                "/api/v1/login",
+                "POST",
+                403,
+                "ua",
+                new Rule("950001", "SQL_INJECTION", "msg", Severity.CRITICAL, RuleCategory.INJECTION),
+                Action.DENY,
+                new GeoLocation("CN", "Beijing"),
+                1024L,
+                256L);
+        return new EnrichedEvent(event, "SQL/Command Injection", 75, receivedAt);
+    }
+}

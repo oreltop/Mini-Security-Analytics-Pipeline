@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 
 /**
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Repository;
  * logic quickly — see the README for how this maps onto a real store at scale.
  */
 @Repository
+@Profile("!clickhouse")
 public class InMemoryEventRepository implements EventRepository {
 
     private final Map<String, EnrichedEvent> eventsById = new ConcurrentHashMap<>();
