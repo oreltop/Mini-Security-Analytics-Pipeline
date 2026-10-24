@@ -1,13 +1,12 @@
 # Ingestion (Part 1)
 
-The entry point of the Mini WSA pipeline: receive security events (DLRs) over
-REST, reject anything that isn't trustworthy, and hand clean events on to the
-rest of the system. This document describes everything built in the ingestion
-step — architecture, request flow, components, design decisions, and how to run
-and test it.
+The entry point of the Mini WSA pipeline: receive security events (DLRs) over REST,
+reject anything that isn't trustworthy, enrich what's clean, and store it. This
+document covers the ingestion endpoint and the pipeline it drives; the enrichment
+logic itself (classification + threat score) is detailed in
+[`enrichment.md`](enrichment.md).
 
-> Pipeline position: **ingest → (enrich) → (store)**. Validation is complete;
-> enrichment and the wiring of storage into the flow come in later steps.
+> Pipeline position: **ingest → enrich → store** — all wired and complete.
 
 ---
 
@@ -18,45 +17,47 @@ POST /v1/events/ingest
 Content-Type: application/json
 ```
 
-- Accepts a single security event (batch/array support is a later step).
-- Returns **`201 Created`** with the accepted event on success.
-- Returns **`400 Bad Request`** with a consistent error body on any invalid input.
+- Accepts **a single event object or an array** (batch) of events.
+- **`201 Created`** with a JSON **array** of the stored *enriched* events (a single
+  event comes back as a 1-element array).
+- **`400 Bad Request`** with a consistent error body on any invalid input. A batch is
+  **atomic**: if any event is invalid, the whole batch is rejected and nothing is stored.
 
 OpenAPI/Swagger is served alongside:
 
 | Endpoint | Purpose |
 |---|---|
 | `GET /swagger-ui/index.html` | Interactive API UI |
-| `GET /v3/api-docs` | OpenAPI 3 spec (JSON) — includes the `SecurityEvent` schema and enum values |
+| `GET /v3/api-docs` | OpenAPI 3 spec (JSON) — includes the schema and enum values |
 | `GET /v3/api-docs.yaml` | Same spec in YAML |
 
 ---
 
 ## Architecture
 
-Dependencies point **downward** only (transport → core → storage; everyone →
-domain). The core never imports the web layer; storage is reached only through
-its interface.
+Dependencies point **downward** only. The core never imports the web layer; storage
+and enrichment are reached only through their types.
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  TRANSPORT (web)                                              │
-│  EventIngestionController   @RestController  POST /v1/events/…│
-│  IngestionExceptionHandler  @RestControllerAdvice → 400s      │
-│  ErrorResponse, ValidationError   (the HTTP error contract)   │
-├─────────────────────────────────────────────────────────────┤
-│  APPLICATION / CORE                                           │
-│  EventIngestionService.ingest(...)   ← validation lives HERE  │
-│  InvalidEventException                                        │
-├─────────────────────────────────────────────────────────────┤
-│  STORAGE (seam)                                               │
-│  EventRepository (interface)                                  │
-│  InMemoryEventRepository (@Repository, ConcurrentHashMap)     │
-├─────────────────────────────────────────────────────────────┤
-│  DOMAIN (cross-cutting, depended on by all layers)           │
-│  SecurityEvent, Rule, GeoLocation   (immutable records)       │
-│  RuleCategory, Severity, Action     (enums)                   │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│  TRANSPORT (web)                                                   │
+│  EventIngestionController   POST /v1/events/ingest (List in/out)   │
+│  IngestionExceptionHandler  @RestControllerAdvice → 400s           │
+│  ErrorResponse, ValidationError   (the HTTP error contract)        │
+├──────────────────────────────────────────────────────────────────┤
+│  APPLICATION / CORE                                                │
+│  EventIngestionService.ingest(...)  ← validate → enrich → store    │
+│  InvalidEventException                                             │
+├──────────────────────────────────────────────────────────────────┤
+│  ENRICHMENT                 │  STORAGE (seam)                      │
+│  ThreatScorer               │  EventRepository (interface)         │
+│  RuleCategory.attackType()  │  InMemoryEventRepository             │
+│  (see enrichment.md)        │  (@Repository, ConcurrentHashMap)    │
+├──────────────────────────────────────────────────────────────────┤
+│  DOMAIN (cross-cutting)                                            │
+│  SecurityEvent, Rule, GeoLocation, EnrichedEvent  (records)        │
+│  RuleCategory, Severity, Action                   (enums)          │
+└──────────────────────────────────────────────────────────────────┘
 
 Bootstrap: MiniWsaApplication (@SpringBootApplication)
 ```
@@ -66,134 +67,129 @@ Bootstrap: MiniWsaApplication (@SpringBootApplication)
 ## Request flow
 
 ```
-HTTP JSON
+HTTP JSON  (a single object OR an array)
    │
    ▼
-[1] EventIngestionController.ingest(@RequestBody SecurityEvent)
-   │        Jackson deserializes JSON → typed SecurityEvent
-   │        (enums reject unknown values at parse time)
+[1] EventIngestionController.ingest(@RequestBody List<SecurityEvent>)
+   │        Jackson binds; a lone object → 1-element list
+   │        (spring.jackson…accept-single-value-as-array)
+   │        enums / timestamps that can't be typed fail here
    │
    ├─ parse fails ──► HttpMessageNotReadableException
-   │                     └─► IngestionExceptionHandler.handleUnreadable
-   │                           └─► 400 {errors:[{field,message}]}   ① transport
+   │                     └─► handler → 400 {errors:[{field,message}]}   ① transport
+   │                         (field is indexed, e.g. "[0].rule.category")
    ▼
-[2] ingestionService.ingest(event)
-   │        Validator.validate(event) against @NotBlank/@NotNull
+[2] ingestionService.ingest(events)
+   │        validate EVERY event first (Validator)
    │
-   ├─ violations ──► InvalidEventException(List<ValidationError>)
-   │                     └─► IngestionExceptionHandler.handleInvalidEvent
-   │                           └─► 400 {errors:[...]}               ② semantic
+   ├─ any violation ──► InvalidEventException(List<ValidationError>)
+   │                     └─► handler → 400 {errors:[...]}               ② semantic
+   │                         (atomic: nothing has been stored)
    ▼
-[3] valid → service returns the event   (today: `return event;`)
-   │
+[3] all valid → for each event:
+   │        enrich  (attackType + threatScore + receivedAt — see enrichment.md)
+   │        save    (EventRepository)
    ▼
-[4] Controller → 201 Created, body = the event
+[4] Controller → 201 Created, body = array of EnrichedEvent
 ```
 
-### Two validation gates, one error shape
+### Validation — three checks, one error shape
 
-| Gate | Where | Catches | Why there |
-|---|---|---|---|
-| ① Transport | `IngestionExceptionHandler` | unknown enum, bad timestamp, malformed JSON | Jackson fails to build the object *before* the core runs, so this must live at the boundary |
-| ② Semantic | `EventIngestionService.ingest` | missing/blank required fields, structural rules | Lives in the **core** so every entry path (REST now; data generator / queue later) is validated — not just HTTP |
+| Check | Where | Catches |
+|---|---|---|
+| ① Transport | `IngestionExceptionHandler` (`HttpMessageNotReadableException`) | unknown enum, bad timestamp, malformed JSON — things Jackson can't type, *before* the core runs |
+| ② Semantic — presence | core `Validator` (`@NotBlank`/`@NotNull`) | missing/blank required fields, null nested objects |
+| ② Semantic — numeric | core `Validator` (`@NotNull` + `@Positive`/`@PositiveOrZero`) | `configId`/`statusCode`/`requestSize`/`responseSize` — **boxed** types so an *omitted* number isn't silently `0` |
 
-Both converge on the same body via the `@RestControllerAdvice`:
+All converge on one body via the `@RestControllerAdvice`:
 
 ```json
-{ "errors": [ { "field": "rule.category", "message": "must be one of [INJECTION, XSS, ...]" } ] }
+{ "errors": [ { "field": "[0].rule.category", "message": "must be one of [INJECTION, XSS, ...]" } ] }
 ```
+
+Validation lives in the **core service**, not the controller, so every entry path
+(REST now; the Part 5 generator or a future queue later) is covered.
 
 ---
 
 ## Components
 
 ### Domain (`com.akamai.miniwsa.domain`)
-Immutable records + enums. Modeling the closed value sets as enums means an
-unknown value fails to deserialize — the schema is partly enforced by parsing.
-
-- `SecurityEvent` — the DLR (top-level record); carries Bean Validation
-  constraints (`@NotBlank`/`@NotNull`) on required fields, cascading into `Rule`.
+- `SecurityEvent` — the DLR (record); Bean Validation constraints on required fields,
+  with numeric fields **boxed** (`Long`/`Integer`) so presence is enforceable; cascades into `Rule`.
 - `Rule`, `GeoLocation` — nested records.
-- `RuleCategory`, `Severity`, `Action` — the three closed enums.
+- `EnrichedEvent` — original event + `attackType` + `threatScore` + `receivedAt` (see enrichment.md).
+- `RuleCategory`, `Severity`, `Action` — closed enums.
 
 ### Core (`com.akamai.miniwsa.ingest`)
-- `EventIngestionService` — the single ingestion operation, `ingest(...)`. Runs
-  the `Validator` programmatically; throws `InvalidEventException` on violations;
-  returns the event on success. **This is the trust boundary.** Validation lives
-  here (not on the controller) so any caller is covered.
-- `InvalidEventException` — carries `List<ValidationError>`; the event-level
-  "rejected" signal.
+- `EventIngestionService` — the ingestion operation (single `ingest(event)` and batch
+  `ingest(List)`). Validates, enriches (via `ThreatScorer` + `RuleCategory.attackType()`),
+  and stores (via `EventRepository`). The trust boundary.
+- `InvalidEventException` — carries `List<ValidationError>`; the "rejected" signal.
 
 ### Transport (`com.akamai.miniwsa.ingest`)
-- `EventIngestionController` — thin `@RestController`; deserializes and delegates
-  to `ingest(...)`, returns `201`.
-- `IngestionExceptionHandler` — `@RestControllerAdvice` mapping both failure
-  types to `400` under one shape.
-- `ErrorResponse` — `{ errors: List<ValidationError> }`, the JSON body of a `400`.
-- `ValidationError` — a single `(field, message)` datum; library-agnostic
-  (decoupled from Hibernate Validator / Jackson internal types).
+- `EventIngestionController` — thin `@RestController`; binds `List<SecurityEvent>`,
+  delegates to the service, returns `201` with `List<EnrichedEvent>`.
+- `IngestionExceptionHandler` — `@RestControllerAdvice`; maps semantic *and* transport
+  failures to `400` under one shape.
+- `ErrorResponse` (`{ errors: [...] }`) and `ValidationError` (`{field, message}`).
+
+### Enrichment (`com.akamai.miniwsa.enrichment`)
+- `ThreatScorer` — the scoring formula; `RuleCategory.attackType()` — the classification. See enrichment.md.
 
 ### Storage (`com.akamai.miniwsa.storage`)
-- `EventRepository` — the swappable storage **seam** (interface): `save`, `findAll`.
-- `InMemoryEventRepository` — `@Repository` backed by a
-  `ConcurrentHashMap<String, SecurityEvent>` keyed by `eventId` (thread-safe;
-  de-duplicates re-sent events).
-- **Built and tested, but not yet wired into `ingest`** — intentionally deferred
-  until enrichment defines the final stored shape.
+- `EventRepository` — the swappable seam: `save`, `findAll`, `countByClientIpSince`.
+- `InMemoryEventRepository` — `@Repository`, `ConcurrentHashMap<String, EnrichedEvent>`
+  keyed by `eventId` (thread-safe; **idempotent upsert** — replays overwrite, never duplicate).
 
 ### Bootstrap
 - `MiniWsaApplication` — `@SpringBootApplication` entry point.
 
 ---
 
-## Design decisions
+## Design decisions (headlines — full rationale in `hints/`)
 
-- **Typed, immutable domain** (records + enums): deserialization alone enforces
-  closed value sets; no half-built mutable events can exist.
-- **Zero-trust validation in the core, not the controller**: the controller is a
-  thin adapter; `ingest(...)` is the one trust boundary every path flows through.
-- **Unified error contract** (`ErrorResponse`/`ValidationError`): one shape for
-  every `400`, whether semantic or transport, decoupled from framework types.
-- **Storage behind an interface**: in-memory today, a columnar/search store at
-  real WSA scale, with no change above the seam.
-- **All violations reported at once**: an invalid event returns *every* problem
-  in one `400`, not the first one only.
+- **Typed, immutable domain** (records + enums): deserialization enforces closed value sets.
+- **Zero-trust validation in the core**, not the controller.
+- **Numeric fields boxed** so an omitted number can't slip through as `0`.
+- **Unified error contract** for every `400`, transport or semantic.
+- **Single-or-array binding** via `accept-single-value-as-array`, keeping all binding (and
+  thus transport error handling) at the Jackson boundary.
+- **Always an array response**, and **atomic** batch (all-or-nothing).
+- **Idempotent upsert** keyed by `eventId` (at-least-once edge delivery).
+- **Storage behind an interface** — in-memory now, columnar/search at scale.
 
 ---
 
 ## Examples
 
-**Valid → `201`** (event echoed back):
+**Single valid event → `201`** (1-element array, enriched):
 
 ```bash
 curl -i -X POST http://localhost:8080/v1/events/ingest \
   -H 'Content-Type: application/json' \
-  -d '{
-    "eventId":"evt-00132","timestamp":"2026-05-20T14:32:10Z","configId":14227,
-    "policyId":"pol_web1","clientIp":"203.0.113.42","hostname":"www.example.com",
-    "path":"/api/v1/login","method":"POST","statusCode":403,"userAgent":"Mozilla/5.0",
-    "rule":{"id":"950001","name":"SQL_INJECTION","message":"SQLi","severity":"CRITICAL","category":"INJECTION"},
-    "action":"DENY","geoLocation":{"country":"CN","city":"Beijing"},
-    "requestSize":1024,"responseSize":256
-  }'
+  -d '{ "eventId":"evt-1","timestamp":"2026-05-20T14:32:10Z","configId":14227,
+        "policyId":"p","clientIp":"203.0.113.42","hostname":"h","path":"/login",
+        "method":"POST","statusCode":403,"userAgent":"ua",
+        "rule":{"id":"1","name":"n","message":"m","severity":"CRITICAL","category":"INJECTION"},
+        "action":"DENY","geoLocation":{"country":"CN","city":"B"},
+        "requestSize":10,"responseSize":20 }'
+# → [ { ...original fields..., "attackType":"SQL/Command Injection", "threatScore":75,
+#       "receivedAt":"2026-10-24T15:08:38Z" } ]
 ```
 
-**Semantic failure → `400`** (blank `eventId`, missing `clientIp`):
+**Batch** — wrap events in `[ ... ]`; response is the array of enriched events.
 
-```json
-{ "errors": [
-  { "field": "clientIp", "message": "must not be blank" },
-  { "field": "eventId",  "message": "must not be blank" }
-] }
-```
-
-**Transport failures → `400`** (same shape):
+**Error responses → `400`** (same `{errors:[...]}` shape):
 
 | Input | Body |
 |---|---|
-| `rule.category: "BANANA"` | `{"errors":[{"field":"rule.category","message":"must be one of [INJECTION, XSS, PROTOCOL_VIOLATION, DATA_LEAKAGE, BOT, DOS, RATE_LIMIT]"}]}` |
-| `timestamp: "not-a-date"` | `{"errors":[{"field":"timestamp","message":"invalid value for Instant"}]}` |
+| blank `eventId`, missing `clientIp` | `{"errors":[{"field":"eventId",...},{"field":"clientIp",...}]}` |
+| omitted `configId` / `statusCode` | `{"errors":[{"field":"configId",...},{"field":"statusCode",...}]}` |
+| `rule.category:"BANANA"` | `{"errors":[{"field":"[0].rule.category","message":"must be one of [...]"}]}` |
+| `timestamp:"not-a-date"` | `{"errors":[{"field":"timestamp","message":"invalid value for Instant"}]}` |
 | truncated JSON | `{"errors":[{"field":"body","message":"malformed JSON request body"}]}` |
+| batch with any invalid event | `400`, nothing stored (atomic) |
 
 ---
 
@@ -202,9 +198,10 @@ curl -i -X POST http://localhost:8080/v1/events/ingest \
 | Test | Covers |
 |---|---|
 | `SecurityEventDeserializationTest` | sample DLR JSON → typed model (enums mapped) |
-| `EventIngestionServiceTest` | core validation: missing required fields rejected |
-| `EventIngestionControllerTest` | API end-to-end: `201`; semantic `400`; bad-enum `400`; malformed-JSON `400` |
-| `InMemoryEventRepositoryTest` | store: empty on creation; save then read back |
+| `EventIngestionServiceTest` | validation; enrich+store; repeat-offender; batch atomicity; idempotent upsert |
+| `EventIngestionControllerTest` | API end-to-end: single `201`; **batch `201`**; semantic/numeric/bad-enum/malformed `400` |
+| `InMemoryEventRepositoryTest` | store: empty on creation; save/read back; count-by-IP-since |
+| `RuleCategoryTest`, `ThreatScorerTest` | enrichment (see enrichment.md) |
 
 ---
 
@@ -222,9 +219,7 @@ Then open <http://localhost:8080/swagger-ui/index.html>.
 
 ---
 
-## Not yet done (later steps)
+## Status
 
-- Wire `EventRepository.save(...)` into `ingest` so events are persisted.
-- Batch ingestion (accept an array of events).
-- Server-side `receivedAt` timestamp on ingestion.
-- Enrichment: `attackType`, `threatScore` (Part 2).
+Parts 1 (ingestion) and 2 (enrichment) are complete. Remaining: Part 3 (stats),
+Part 4 (samples), Part 5 (data generator).
