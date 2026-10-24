@@ -60,9 +60,16 @@ remains the zero-infra default. Remaining:
 - Negative / zero `limit` or `offset` not validated (passed through; odd pages possible).
 - Invalid enum query params (`category=foo`) use Spring's default 400 body, not `ErrorResponse`.
 
+## Generator (Part 5 — done; residual)
+
+- Large `--post` bodies (e.g. 10k) are a single HTTP request — may hit size/timeouts;
+  chunked upload would be better at scale.
+- Wave size/interval are constants in the script (not CLI flags).
+- Per-event `jq` makes very large counts slower than a compiled generator.
+
 ## Parts not yet built
 
-- **Part 5 — Data generator** — not started (realistic events + attack waves, ~10k configurable).
+_(none — Parts 1–5 are implemented; README remains as a deliverable below.)_
 
 ## Bonus challenges (optional, not started)
 

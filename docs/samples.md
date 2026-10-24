@@ -93,5 +93,5 @@ Omit time/filters for “everything” (fine for in-memory; watch cost on ClickH
 
 ## Status
 
-Part 4 complete (`v0.4-samples`). Remaining: Part 5 (data generator), top-level `README.md`.
-Residuals in [`gaps.md`](gaps.md).
+Part 4 complete (`v0.4-samples`). Part 5 generator: [`generator.md`](generator.md).
+Remaining deliverable: top-level `README.md`. Residuals in [`gaps.md`](gaps.md).
