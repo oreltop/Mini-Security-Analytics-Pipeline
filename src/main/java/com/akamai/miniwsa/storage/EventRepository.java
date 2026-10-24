@@ -5,6 +5,7 @@ import com.akamai.miniwsa.domain.EnrichedEvent;
 import com.akamai.miniwsa.domain.RuleCategory;
 import com.akamai.miniwsa.stats.AttackerStats;
 import com.akamai.miniwsa.stats.CategoryStats;
+import com.akamai.miniwsa.stats.PathCount;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -51,4 +52,10 @@ public interface EventRepository {
      * timestamp range. Backs the stats {@code topAttackers} section.
      */
     List<AttackerStats> topAttackers(Long configId, Instant from, Instant to, int limit);
+
+    /**
+     * Top request paths by event count, over the config + timestamp range. Backs
+     * the stats {@code topTargetedPaths} section.
+     */
+    List<PathCount> topPaths(Long configId, Instant from, Instant to, int limit);
 }

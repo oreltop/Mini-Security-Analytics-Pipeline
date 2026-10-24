@@ -11,6 +11,7 @@ import com.akamai.miniwsa.domain.SecurityEvent;
 import com.akamai.miniwsa.domain.Severity;
 import com.akamai.miniwsa.stats.AttackerStats;
 import com.akamai.miniwsa.stats.CategoryStats;
+import com.akamai.miniwsa.stats.PathCount;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -128,6 +129,29 @@ class InMemoryEventRepositoryTest {
         assertThat(top.get(2).count()).isEqualTo(1);
     }
 
+    @Test
+    void ranksTopTargetedPathsByEventCount() {
+        Instant base = Instant.parse("2026-05-20T12:00:00Z");
+        repository.save(enrichedPath("a1", 1L, base, "/login"));
+        repository.save(enrichedPath("a2", 1L, base, "/login"));
+        repository.save(enrichedPath("a3", 1L, base, "/login"));
+        repository.save(enrichedPath("b1", 1L, base, "/admin"));
+        repository.save(enrichedPath("b2", 1L, base, "/admin"));
+        repository.save(enrichedPath("c1", 1L, base, "/api"));
+
+        Instant from = Instant.parse("2026-05-20T00:00:00Z");
+        Instant to = Instant.parse("2026-05-21T00:00:00Z");
+        List<PathCount> top = repository.topPaths(1L, from, to, 10);
+
+        assertThat(top).hasSize(3);
+        assertThat(top.get(0).path()).isEqualTo("/login");
+        assertThat(top.get(0).count()).isEqualTo(3);
+        assertThat(top.get(1).path()).isEqualTo("/admin");
+        assertThat(top.get(1).count()).isEqualTo(2);
+        assertThat(top.get(2).path()).isEqualTo("/api");
+        assertThat(top.get(2).count()).isEqualTo(1);
+    }
+
     private static EnrichedEvent enrichedCat(String id, long configId, Instant timestamp,
             RuleCategory category, int threatScore) {
         SecurityEvent event = new SecurityEvent(
@@ -155,6 +179,15 @@ class InMemoryEventRepositoryTest {
                 new Rule("950001", "RULE", "msg", Severity.CRITICAL, RuleCategory.INJECTION),
                 Action.DENY, new GeoLocation("CN", "Beijing"), 1024L, 256L);
         return new EnrichedEvent(event, "SQL/Command Injection", threatScore, timestamp);
+    }
+
+    private static EnrichedEvent enrichedPath(String id, long configId, Instant timestamp, String path) {
+        SecurityEvent event = new SecurityEvent(
+                id, timestamp, configId, "pol_web1", "203.0.113.42", "www.example.com",
+                path, "POST", 403, "ua",
+                new Rule("950001", "RULE", "msg", Severity.CRITICAL, RuleCategory.INJECTION),
+                Action.DENY, new GeoLocation("CN", "Beijing"), 1024L, 256L);
+        return new EnrichedEvent(event, "SQL/Command Injection", 75, timestamp);
     }
 
     private static EnrichedEvent enrichedWith(String id, long configId, Instant timestamp) {

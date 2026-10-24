@@ -16,7 +16,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class StatsService {
 
-    private static final int TOP_ATTACKERS_LIMIT = 10;
+    private static final int TOP_LIMIT = 10;
 
     private final EventRepository repository;
 
@@ -28,8 +28,15 @@ public class StatsService {
         long totalEvents = repository.countInRange(configId, from, to);
         Map<RuleCategory, CategoryStats> byCategory = repository.statsByCategory(configId, from, to);
         Map<Action, Long> byAction = repository.countByAction(configId, from, to);
-        List<AttackerStats> topAttackers = repository.topAttackers(configId, from, to, TOP_ATTACKERS_LIMIT);
+        List<AttackerStats> topAttackers = repository.topAttackers(configId, from, to, TOP_LIMIT);
+        List<PathCount> topTargetedPaths = repository.topPaths(configId, from, to, TOP_LIMIT);
         return new StatsSummary(
-                configId, new TimeRange(from, to), totalEvents, byCategory, byAction, topAttackers);
+                configId,
+                new TimeRange(from, to),
+                totalEvents,
+                byCategory,
+                byAction,
+                topAttackers,
+                topTargetedPaths);
     }
 }

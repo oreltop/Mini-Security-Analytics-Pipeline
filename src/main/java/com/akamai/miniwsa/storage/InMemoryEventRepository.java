@@ -5,6 +5,7 @@ import com.akamai.miniwsa.domain.EnrichedEvent;
 import com.akamai.miniwsa.domain.RuleCategory;
 import com.akamai.miniwsa.stats.AttackerStats;
 import com.akamai.miniwsa.stats.CategoryStats;
+import com.akamai.miniwsa.stats.PathCount;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -85,6 +86,19 @@ public class InMemoryEventRepository implements EventRepository {
                         entry.getValue().size(),
                         entry.getValue().stream().mapToInt(EnrichedEvent::threatScore).average().orElse(0.0)))
                 .sorted(Comparator.comparingLong(AttackerStats::count).reversed())
+                .limit(limit)
+                .toList();
+    }
+
+    @Override
+    public List<PathCount> topPaths(Long configId, Instant from, Instant to, int limit) {
+        return eventsById.values().stream()
+                .filter(e -> configId == null || configId.equals(e.event().configId()))
+                .filter(e -> withinRange(e.event().timestamp(), from, to))
+                .collect(Collectors.groupingBy(e -> e.event().path(), Collectors.counting()))
+                .entrySet().stream()
+                .map(entry -> new PathCount(entry.getKey(), entry.getValue()))
+                .sorted(Comparator.comparingLong(PathCount::count).reversed())
                 .limit(limit)
                 .toList();
     }

@@ -9,6 +9,7 @@ import com.akamai.miniwsa.domain.SecurityEvent;
 import com.akamai.miniwsa.domain.Severity;
 import com.akamai.miniwsa.stats.AttackerStats;
 import com.akamai.miniwsa.stats.CategoryStats;
+import com.akamai.miniwsa.stats.PathCount;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -173,6 +174,29 @@ public class ClickHouseEventRepository implements EventRepository {
                 rs.getString("clientIp"),
                 rs.getLong("cnt"),
                 rs.getDouble("avg")));
+        jdbcTemplate.query(sql.toString(), handler, args.toArray());
+        return top;
+    }
+
+    @Override
+    public List<PathCount> topPaths(Long configId, Instant from, Instant to, int limit) {
+        StringBuilder sql = new StringBuilder(
+                "SELECT path, count() AS cnt FROM events "
+                        + "WHERE timestamp >= ? AND timestamp <= ?");
+        List<Object> args = new ArrayList<>();
+        args.add(utc(from));
+        args.add(utc(to));
+        if (configId != null) {
+            sql.append(" AND configId = ?");
+            args.add(configId);
+        }
+        sql.append(" GROUP BY path ORDER BY cnt DESC LIMIT ?");
+        args.add(limit);
+
+        List<PathCount> top = new ArrayList<>();
+        RowCallbackHandler handler = rs -> top.add(new PathCount(
+                rs.getString("path"),
+                rs.getLong("cnt")));
         jdbcTemplate.query(sql.toString(), handler, args.toArray());
         return top;
     }

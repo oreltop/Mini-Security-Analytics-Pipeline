@@ -42,7 +42,9 @@ class StatsSummaryControllerTest {
                 .andExpect(jsonPath("$.byAction.DENY").value(2))
                 .andExpect(jsonPath("$.topAttackers[0].clientIp").value("203.0.113.42"))
                 .andExpect(jsonPath("$.topAttackers[0].count").value(2))
-                .andExpect(jsonPath("$.topAttackers[0].avgThreatScore").value(75.0));
+                .andExpect(jsonPath("$.topAttackers[0].avgThreatScore").value(75.0))
+                .andExpect(jsonPath("$.topTargetedPaths[0].path").value("/api/v1/login"))
+                .andExpect(jsonPath("$.topTargetedPaths[0].count").value(2));
     }
 
     private void ingest(String eventId) throws Exception {

@@ -6,8 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Aggregated statistics for a configuration and time range. Grows section by
- * section (topTargetedPaths) as those cycles land.
+ * Aggregated statistics for a configuration and time range.
  * {@code configId} is null when aggregating across all configurations.
  */
 public record StatsSummary(
@@ -16,6 +15,7 @@ public record StatsSummary(
         long totalEvents,
         Map<RuleCategory, CategoryStats> byCategory,
         Map<Action, Long> byAction,
-        List<AttackerStats> topAttackers
+        List<AttackerStats> topAttackers,
+        List<PathCount> topTargetedPaths
 ) {
 }
