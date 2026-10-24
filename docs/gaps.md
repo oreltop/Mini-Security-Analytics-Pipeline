@@ -41,10 +41,16 @@ remains the zero-infra default. Remaining:
 - **In-memory default is not durable** (lost on restart) — fine for dev; use the ClickHouse profile
   for persistence.
 
+## Stats (Part 3 — done; residual)
+
+- Time range is on event **`timestamp`** (chosen deliberately). Client-supplied times are spoofable
+  and late arrivals can mutate past windows; a hardened system might watermark or offer a
+  `timeField` param.
+- `from > to` is not rejected explicitly (yields an empty summary).
+- Top-N limit is fixed at 10 (per assignment); not query-param configurable.
+
 ## Parts not yet built
 
-- **Part 3 — Stats API** (`GET /v1/stats/summary`) — not started. Open decision: time-range filters
-  on event `timestamp` vs `receivedAt`.
 - **Part 4 — Samples API** (`GET /v1/events/samples`) — not started (pagination, filters, sort).
 - **Part 5 — Data generator** — not started (realistic events + attack waves, ~10k configurable).
 
