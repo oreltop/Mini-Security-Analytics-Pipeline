@@ -130,6 +130,28 @@ public class ClickHouseEventRepository implements EventRepository {
         return byCategory;
     }
 
+    @Override
+    public Map<Action, Long> countByAction(Long configId, Instant from, Instant to) {
+        StringBuilder sql = new StringBuilder(
+                "SELECT action, count() AS cnt FROM events "
+                        + "WHERE timestamp >= ? AND timestamp <= ?");
+        List<Object> args = new ArrayList<>();
+        args.add(utc(from));
+        args.add(utc(to));
+        if (configId != null) {
+            sql.append(" AND configId = ?");
+            args.add(configId);
+        }
+        sql.append(" GROUP BY action");
+
+        Map<Action, Long> byAction = new HashMap<>();
+        RowCallbackHandler handler = rs -> byAction.put(
+                Action.valueOf(rs.getString("action")),
+                rs.getLong("cnt"));
+        jdbcTemplate.query(sql.toString(), handler, args.toArray());
+        return byAction;
+    }
+
     private RowMapper<EnrichedEvent> enrichedEventRowMapper() {
         return (rs, rowNum) -> {
             SecurityEvent event = new SecurityEvent(

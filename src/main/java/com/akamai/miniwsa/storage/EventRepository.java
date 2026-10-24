@@ -1,5 +1,6 @@
 package com.akamai.miniwsa.storage;
 
+import com.akamai.miniwsa.domain.Action;
 import com.akamai.miniwsa.domain.EnrichedEvent;
 import com.akamai.miniwsa.domain.RuleCategory;
 import com.akamai.miniwsa.stats.CategoryStats;
@@ -37,4 +38,10 @@ public interface EventRepository {
      * timestamp range. Backs the stats {@code byCategory} section.
      */
     Map<RuleCategory, CategoryStats> statsByCategory(Long configId, Instant from, Instant to);
+
+    /**
+     * Event count per action, over the config + timestamp range. Backs the stats
+     * {@code byAction} section.
+     */
+    Map<Action, Long> countByAction(Long configId, Instant from, Instant to);
 }

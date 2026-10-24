@@ -1,5 +1,6 @@
 package com.akamai.miniwsa.stats;
 
+import com.akamai.miniwsa.domain.Action;
 import com.akamai.miniwsa.domain.RuleCategory;
 import com.akamai.miniwsa.storage.EventRepository;
 import java.time.Instant;
@@ -23,6 +24,7 @@ public class StatsService {
     public StatsSummary summarize(Long configId, Instant from, Instant to) {
         long totalEvents = repository.countInRange(configId, from, to);
         Map<RuleCategory, CategoryStats> byCategory = repository.statsByCategory(configId, from, to);
-        return new StatsSummary(configId, new TimeRange(from, to), totalEvents, byCategory);
+        Map<Action, Long> byAction = repository.countByAction(configId, from, to);
+        return new StatsSummary(configId, new TimeRange(from, to), totalEvents, byCategory, byAction);
     }
 }

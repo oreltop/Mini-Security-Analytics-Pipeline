@@ -132,6 +132,22 @@ class ClickHouseEventRepositoryTest {
         assertThat(byCategory.get(RuleCategory.BOT).avgThreatScore()).isEqualTo(40.0);
     }
 
+    @Test
+    void countsEventsByAction() {
+        Instant base = Instant.parse("2026-05-20T12:00:00Z");
+        repository.save(enrichedAction("a", 1L, base, Action.DENY));
+        repository.save(enrichedAction("b", 1L, base, Action.DENY));
+        repository.save(enrichedAction("c", 1L, base, Action.ALERT));
+
+        Instant from = Instant.parse("2026-05-20T00:00:00Z");
+        Instant to = Instant.parse("2026-05-21T00:00:00Z");
+        Map<Action, Long> byAction = repository.countByAction(1L, from, to);
+
+        assertThat(byAction).hasSize(2);
+        assertThat(byAction.get(Action.DENY)).isEqualTo(2L);
+        assertThat(byAction.get(Action.ALERT)).isEqualTo(1L);
+    }
+
     private static EnrichedEvent enrichedCat(String id, long configId, Instant timestamp,
             RuleCategory category, int threatScore) {
         SecurityEvent event = new SecurityEvent(
@@ -140,6 +156,15 @@ class ClickHouseEventRepositoryTest {
                 new Rule("950001", "RULE", "msg", Severity.CRITICAL, category),
                 Action.DENY, new GeoLocation("CN", "Beijing"), 1024L, 256L);
         return new EnrichedEvent(event, category.attackType(), threatScore, timestamp);
+    }
+
+    private static EnrichedEvent enrichedAction(String id, long configId, Instant timestamp, Action action) {
+        SecurityEvent event = new SecurityEvent(
+                id, timestamp, configId, "pol_web1", "203.0.113.42", "www.example.com",
+                "/api/v1/login", "POST", 403, "ua",
+                new Rule("950001", "RULE", "msg", Severity.CRITICAL, RuleCategory.INJECTION),
+                action, new GeoLocation("CN", "Beijing"), 1024L, 256L);
+        return new EnrichedEvent(event, "SQL/Command Injection", 75, timestamp);
     }
 
     private static EnrichedEvent enrichedWith(String id, long configId, Instant timestamp) {

@@ -1,5 +1,6 @@
 package com.akamai.miniwsa.storage;
 
+import com.akamai.miniwsa.domain.Action;
 import com.akamai.miniwsa.domain.EnrichedEvent;
 import com.akamai.miniwsa.domain.RuleCategory;
 import com.akamai.miniwsa.stats.CategoryStats;
@@ -60,6 +61,14 @@ public class InMemoryEventRepository implements EventRepository {
                         Collectors.collectingAndThen(Collectors.toList(), group -> new CategoryStats(
                                 group.size(),
                                 group.stream().mapToInt(EnrichedEvent::threatScore).average().orElse(0.0)))));
+    }
+
+    @Override
+    public Map<Action, Long> countByAction(Long configId, Instant from, Instant to) {
+        return eventsById.values().stream()
+                .filter(e -> configId == null || configId.equals(e.event().configId()))
+                .filter(e -> withinRange(e.event().timestamp(), from, to))
+                .collect(Collectors.groupingBy(e -> e.event().action(), Collectors.counting()));
     }
 
     private static boolean withinRange(Instant timestamp, Instant from, Instant to) {
