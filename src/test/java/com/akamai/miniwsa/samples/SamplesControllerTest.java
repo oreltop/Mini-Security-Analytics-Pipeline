@@ -37,6 +37,17 @@ class SamplesControllerTest {
                 .andExpect(jsonPath("$.items[0].eventId").exists());
     }
 
+    @Test
+    void samplesClampsLimitToMaxOneHundred() throws Exception {
+        ingest("evt-clamp-1");
+
+        mockMvc.perform(get("/v1/events/samples")
+                        .param("configId", "888001")
+                        .param("limit", "500"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.limit").value(100));
+    }
+
     private void ingest(String eventId) throws Exception {
         String json = """
                 {
@@ -44,7 +55,7 @@ class SamplesControllerTest {
                   "timestamp": "2026-05-20T14:32:10Z",
                   "configId": 888001,
                   "policyId": "pol_web1",
-                  "clientIp": "203.0.113.42",
+                  "clientIp": "198.51.100.88",
                   "hostname": "www.example.com",
                   "path": "/api/v1/login",
                   "method": "POST",

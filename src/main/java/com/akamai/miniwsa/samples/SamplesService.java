@@ -12,6 +12,8 @@ import org.springframework.stereotype.Service;
 @Service
 public class SamplesService {
 
+    static final int MAX_LIMIT = 100;
+
     private final EventRepository repository;
 
     public SamplesService(EventRepository repository) {
@@ -26,8 +28,9 @@ public class SamplesService {
             Action action,
             int limit,
             int offset) {
+        int pageSize = Math.min(limit, MAX_LIMIT);
         long total = repository.countMatching(configId, from, to, category, action);
-        var items = repository.findPage(configId, from, to, category, action, limit, offset);
-        return new SamplesResponse(total, limit, offset, items);
+        var items = repository.findPage(configId, from, to, category, action, pageSize, offset);
+        return new SamplesResponse(total, pageSize, offset, items);
     }
 }

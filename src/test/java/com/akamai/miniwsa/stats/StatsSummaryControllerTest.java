@@ -40,7 +40,7 @@ class StatsSummaryControllerTest {
                 .andExpect(jsonPath("$.byCategory.INJECTION.count").value(2))
                 .andExpect(jsonPath("$.byCategory.INJECTION.avgThreatScore").value(75.0))
                 .andExpect(jsonPath("$.byAction.DENY").value(2))
-                .andExpect(jsonPath("$.topAttackers[0].clientIp").value("203.0.113.42"))
+                .andExpect(jsonPath("$.topAttackers[0].clientIp").value("198.51.100.77"))
                 .andExpect(jsonPath("$.topAttackers[0].count").value(2))
                 .andExpect(jsonPath("$.topAttackers[0].avgThreatScore").value(75.0))
                 .andExpect(jsonPath("$.topTargetedPaths[0].path").value("/api/v1/login"))
@@ -54,7 +54,7 @@ class StatsSummaryControllerTest {
                   "timestamp": "2026-05-20T14:32:10Z",
                   "configId": 777001,
                   "policyId": "pol_web1",
-                  "clientIp": "203.0.113.42",
+                  "clientIp": "198.51.100.77",
                   "hostname": "www.example.com",
                   "path": "/api/v1/login",
                   "method": "POST",
