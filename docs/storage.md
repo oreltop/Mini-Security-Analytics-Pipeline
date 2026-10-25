@@ -9,7 +9,7 @@ implementations selected by Spring profile. The app stores the *enriched* event
 ```mermaid
 flowchart TD
   App["Ingest / Stats / Samples services"] --> Repo["EventRepository"]
-  Repo --> Mem["InMemoryEventRepository\nprofile: !clickhouse"]
+  Repo --> Mem["InMemoryEventRepository\nprofile: in_memory"]
   Repo --> CH["ClickHouseEventRepository\nprofile: clickhouse"]
   Mem --> Map["ConcurrentHashMap by eventId"]
   CH --> Cfg["ClickHouseDataSourceConfig"]
@@ -32,16 +32,40 @@ flowchart TD
 
 | | Default (in-memory) | ClickHouse |
 |---|---|---|
-| Profile | `!clickhouse` (default) | `clickhouse` |
+| Profile | `in_memory` (default via `spring.profiles.default`) | `clickhouse` |
 | Class | `InMemoryEventRepository` | `ClickHouseEventRepository` |
 | Backing | `ConcurrentHashMap` keyed by `eventId` | ClickHouse `events` table (`MergeTree`) |
 | Duplicate `eventId` | **upsert** (last write wins) | **append** (duplicate rows kept) |
 | Infra | none — always boots | ClickHouse server |
 | Use | local dev, the fast test suite | production-like / the full-stack bonus |
 
-`@SpringBootApplication` excludes `DataSourceAutoConfiguration` so the **default profile needs no
-database to boot**; the `clickhouse` profile wires its own `DataSource` + `JdbcTemplate`
+Activate **exactly one** storage profile. `@SpringBootApplication` excludes
+`DataSourceAutoConfiguration` so **`in_memory` needs no database**; the `clickhouse` profile wires
+its own `DataSource` + `JdbcTemplate`
 (`ClickHouseDataSourceConfig`) and creates the schema on startup.
+
+## Profile choice (design decision)
+
+Storage backends are **named profiles**, not a negated condition (`in_memory` and `clickhouse` —
+each implementation is `@Profile("…")` on its own class).
+
+| Question | Decision | Rationale |
+|---|---|---|
+| Default when nothing is set? | `spring.profiles.default=in_memory` | Clone-and-run for reviewers and local dev; `./mvnw test` and `spring-boot:run` need no Docker. |
+| What runs in “real” deploy? | **`clickhouse` must be set explicitly** (e.g. `SPRING_PROFILES_ACTIVE=clickhouse` in Compose / k8s) | Production should never rely on an implicit default; env declares the backend. |
+| Fail if profile omitted? | No (for this take-home) | Omitting both would leave no `EventRepository` and a confusing startup failure; default documents the happy path. A hardened service could drop the default and fail fast with a clear message. |
+| Both profiles at once? | Unsupported | Spring would register two `EventRepository` beans; activate **one** profile only. |
+
+Explicit local / CI examples:
+
+```bash
+./mvnw spring-boot:run                                    # in_memory (default)
+./mvnw spring-boot:run -Dspring-boot.run.profiles=clickhouse   # needs ClickHouse reachable
+SPRING_PROFILES_ACTIVE=clickhouse ./mvnw spring-boot:run
+```
+
+This is intentional configuration, not a design weakness — see [`weaknesses.md`](weaknesses.md) for
+semantic debts (e.g. upsert vs append under the same interface).
 
 ## Why ClickHouse
 
@@ -53,11 +77,11 @@ workload at scale. In-memory is the zero-infra default for development.
 ## How to run
 
 ```bash
-# In-memory (zero dependencies)
+# In-memory (zero dependencies; default profile)
 ./mvnw spring-boot:run
 
-# ClickHouse full stack (app + ClickHouse)
-docker compose up --build        # app on the clickhouse profile, wired to the clickhouse service
+# ClickHouse full stack (app + ClickHouse; Compose sets SPRING_PROFILES_ACTIVE=clickhouse)
+docker compose up --build
 ```
 
 Credentials/URL for the app come from the environment (`SPRING_DATASOURCE_URL`, `…_USERNAME`,

@@ -37,7 +37,7 @@ Detailed write-ups live under [`docs/`](docs/)
 
 ## Build & run (local, in-memory)
 
-No database required — default Spring profile uses the in-memory repository.
+No database required — default storage profile is `in_memory` (`spring.profiles.default`).
 
 ```bash
 ./mvnw spring-boot:run
@@ -113,7 +113,7 @@ curl -sS -X POST http://localhost:8080/v1/events/ingest \
               │                        │                        │
               ▼                        ▼                        ▼
      InMemoryEventRepository   ClickHouseEventRepository   (profile)
-     ConcurrentHashMap           MergeTree / JDBC            clickhouse
+     ConcurrentHashMap           MergeTree / JDBC     in_memory | clickhouse
               │                        │
               └────────────┬───────────┘
                            │
@@ -214,8 +214,9 @@ Workload: append-only security events, read mainly as **time-range aggregations*
 | Elasticsearch | Great search; weaker schema story and heavier ops for our fixed aggregations |
 | Postgres | Simple ops; aggregation + scale weaker for this access pattern |
 
-**Default profile is in-memory** so `./mvnw spring-boot:run` needs no database.
-Activate ClickHouse with the `clickhouse` profile (`docker compose up --build`).
+**Default storage is `in_memory`** so `./mvnw spring-boot:run` needs no database.
+Use `clickhouse` for the full stack (`docker compose up --build` sets the profile).
+Explicit: `-Dspring-boot.run.profiles=in_memory` or `clickhouse` (not both).
 Same `EventRepository` contract; stats/samples aggregations implemented on both
 backends. Deeper scorecard: personal notes / [docs/storage.md](docs/storage.md).
 
