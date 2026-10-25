@@ -97,7 +97,8 @@ remains the zero-infra default. Remaining:
 
 ## Parts not yet built
 
-_(none — Parts 1–5 and the rate-limit bonus are implemented.)_
+_(none — Parts 1–5 and the rate-limit bonus are implemented:
+`v0.1-ingestion` … `v0.5-generator`, `v0.6-rate-limiting`.)_
 
 ## Rate limiting (bonus — done; residual)
 

@@ -131,7 +131,7 @@ from the same batch that were already saved — which is correct.
 - **Repeat-offender on server `receivedAt`**, not client `timestamp` — zero-trust.
 - **`EnrichedEvent` composition + `@JsonUnwrapped`** — no duplication, flat spec-matching JSON.
 - **In-memory upsert by `eventId`** means replays of one id can't inflate the repeat-offender
-  count on the default profile. On ClickHouse, replays append rows and *can* inflate the count.
+  count on the `in_memory` profile. On ClickHouse, replays append rows and *can* inflate the count.
 
 ---
 
@@ -148,5 +148,5 @@ from the same batch that were already saved — which is correct.
 
 ## Status
 
-Part 2 complete. The stored `EnrichedEvent`s are what Part 3 (stats — [`stats.md`](stats.md))
-and Part 4 (samples — [`samples.md`](samples.md)) query.
+Part 2 complete (`v0.2-enrichment`). The stored `EnrichedEvent`s are what Part 3
+(stats — [`stats.md`](stats.md)) and Part 4 (samples — [`samples.md`](samples.md)) query.

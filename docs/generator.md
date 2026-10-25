@@ -87,5 +87,6 @@ Checks: schema-shaped single event, count/seed determinism, wave burst ≥ 25,
 
 ## Status
 
-Part 5 complete (`v0.5-generator`). Top-level [`README.md`](../README.md) covers
-build/run and architecture. Residuals in [`gaps.md`](gaps.md).
+Part 5 complete (`v0.5-generator`). Rate-limit bonus: [`rate-limiting.md`](rate-limiting.md)
+(`v0.6-rate-limiting`). Top-level [`README.md`](../README.md) covers build/run and
+architecture. Residuals in [`gaps.md`](gaps.md).

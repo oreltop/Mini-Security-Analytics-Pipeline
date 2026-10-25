@@ -8,15 +8,16 @@ assembles the envelope.
 
 ```mermaid
 flowchart TD
-  Client["GET /v1/events/samples"] --> Ctrl["SamplesController"]
+  Client["GET /v1/events/samples"] --> Filter["AnalyticsRateLimitFilter"]
+  Filter --> Ctrl["SamplesController"]
   Ctrl --> Svc["SamplesService.findSamples"]
   Svc --> Clamp["clamp limit ≤ 100"]
   Clamp --> Count["countMatching → total"]
   Clamp --> Page["findPage → items"]
   Count --> Repo["EventRepository"]
   Page --> Repo
-  Repo --> Mem["InMemoryEventRepository"]
-  Repo --> CH["ClickHouseEventRepository"]
+  Repo --> Mem["InMemoryEventRepository\nin_memory"]
+  Repo --> CH["ClickHouseEventRepository\nclickhouse"]
   Svc --> Env["SamplesResponse\n{total, limit, offset, items}"]
   Ctrl --> Env
 ```
@@ -111,4 +112,5 @@ Omit time/filters for “everything” (fine for in-memory; watch cost on ClickH
 ## Status
 
 Part 4 complete (`v0.4-samples`). Part 5 generator: [`generator.md`](generator.md).
+Rate-limit bonus: [`rate-limiting.md`](rate-limiting.md) (`v0.6-rate-limiting`).
 End-to-end: [`system-paths.md`](system-paths.md). Residuals in [`gaps.md`](gaps.md).

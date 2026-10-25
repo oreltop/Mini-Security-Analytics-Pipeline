@@ -169,7 +169,8 @@ Assume the app is on `:8080`. Bodies are enriched events (original fields +
 
 Single object or array. `201` with enriched event(s); `400` with `ErrorResponse`.
 **Batch validation is all-or-nothing** — one invalid event rejects the whole request and
-nothing from that request is stored ([docs/ingestion.md](docs/ingestion.md#batch-semantics)).
+nothing from that request is stored. After all events pass validation, saves are sequential
+(not one DB transaction). See [docs/ingestion.md](docs/ingestion.md#batch-semantics).
 
 ```bash
 curl -sS -X POST http://localhost:8080/v1/events/ingest \

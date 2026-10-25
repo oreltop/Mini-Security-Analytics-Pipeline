@@ -44,7 +44,7 @@ Many gap rows are *symptoms* of the weaknesses below.
 - **ClickHouse** appends rows (replay duplicates).
 
 Downstream assumptions (idempotent delivery, “upsert doesn’t inflate repeat-offender”) only
-hold on the default profile. That’s a **contract leak**: one seam, two meanings.
+hold on the `in_memory` profile. That’s a **contract leak**: one seam, two meanings.
 
 **Would change:** make identity semantics part of the repository contract (e.g. upsert /
 dedup on ClickHouse via engine choice or explicit replace), or document and test both
@@ -64,7 +64,7 @@ The threat-score story is clear for demos; soft under load or dual-backend reali
 **Would change:** atomic count+insert (or a store-side “prior count” that includes the
 write), and align replay semantics with weakness #1.
 
-See [`enrichment.md`](enrichment.md), gaps #5.
+See [`enrichment.md`](enrichment.md), gaps #6.
 
 ---
 
@@ -105,7 +105,7 @@ Callers can’t rely on one error shape across the API.
 **Would change:** broaden `@RestControllerAdvice` (or dedicated handlers) so analytics and
 HTTP-level errors share the ingest contract.
 
-See gaps #10, #13.
+See gaps #11, #14.
 
 ---
 

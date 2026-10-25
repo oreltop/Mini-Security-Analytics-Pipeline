@@ -77,7 +77,7 @@ workload at scale. In-memory is the zero-infra default for development.
 ## How to run
 
 ```bash
-# In-memory (zero dependencies; default profile)
+# in_memory (zero dependencies; spring.profiles.default)
 ./mvnw spring-boot:run
 
 # ClickHouse full stack (app + ClickHouse; Compose sets SPRING_PROFILES_ACTIVE=clickhouse)

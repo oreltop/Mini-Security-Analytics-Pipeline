@@ -73,8 +73,8 @@ and enrichment are reached only through their types.
 ├──────────────────────────────────────────────────────────────────┤
 │  ENRICHMENT                 │  STORAGE (seam)                      │
 │  ThreatScorer               │  EventRepository (interface)         │
-│  RuleCategory.attackType()  │  InMemoryEventRepository             │
-│  (see enrichment.md)        │  (@Repository, ConcurrentHashMap)    │
+│  RuleCategory.attackType()  │  InMemoryEventRepository (in_memory) │
+│  (see enrichment.md)        │  ClickHouseEventRepository (clickhouse) │
 ├──────────────────────────────────────────────────────────────────┤
 │  DOMAIN (cross-cutting)                                            │
 │  SecurityEvent, Rule, GeoLocation, EnrichedEvent  (records)        │
@@ -106,7 +106,7 @@ HTTP JSON  (a single object OR an array)
    │
    ├─ any violation ──► InvalidEventException(List<ValidationError>)
    │                     └─► handler → 400 {errors:[...]}               ② semantic
-   │                         (atomic: nothing has been stored)
+   │                         (validation all-or-nothing: nothing stored)
    ▼
 [3] all valid → for each event:
    │        enrich  (attackType + threatScore + receivedAt — see enrichment.md)
@@ -233,7 +233,7 @@ curl -i -X POST http://localhost:8080/v1/events/ingest \
 | `timestamp:"not-a-date"` | `{"errors":[{"field":"timestamp","message":"invalid value for Instant"}]}` |
 | unknown/extra field | `{"errors":[{"field":"[0].bogusField","message":"unknown field"}]}` |
 | truncated JSON | `{"errors":[{"field":"body","message":"malformed JSON request body"}]}` |
-| batch with any invalid event | `400`, nothing stored (atomic) |
+| batch with any invalid event | `400`, nothing stored (validation all-or-nothing) |
 | unexpected server error | `500` `{"errors":[{"message":"Internal server error"}]}` (cause logged, never leaked) |
 
 ---
@@ -243,7 +243,7 @@ curl -i -X POST http://localhost:8080/v1/events/ingest \
 | Test | Covers |
 |---|---|
 | `SecurityEventDeserializationTest` | sample DLR JSON → typed model (enums mapped) |
-| `EventIngestionServiceTest` | validation; enrich+store; repeat-offender; batch atomicity; in-memory upsert |
+| `EventIngestionServiceTest` | validation; enrich+store; repeat-offender; batch validation all-or-nothing; in-memory upsert |
 | `EventIngestionControllerTest` | API end-to-end: single `201`; **batch `201`**; semantic/numeric/bad-enum/malformed `400` |
 | `IngestionExceptionHandlerTest` | clean `500` body (cause not leaked) |
 | `InMemoryEventRepositoryTest` | store: empty on creation; save/read back; count-by-IP-since |
@@ -279,5 +279,6 @@ Then open <http://localhost:8080/swagger-ui/index.html>.
 
 ## Status
 
-Parts 1–5 and the rate-limit bonus are complete. End-to-end paths:
+Part 1 complete (`v0.1-ingestion`). Parts 2–5 and the rate-limit bonus
+(`v0.6-rate-limiting`) are also done. End-to-end paths:
 [`system-paths.md`](system-paths.md). Residuals: [`gaps.md`](gaps.md).

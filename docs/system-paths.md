@@ -6,7 +6,7 @@ paths. Each path has its own chart — only the main components.
 Per-step detail: [ingestion](ingestion.md), [enrichment](enrichment.md),
 [storage](storage.md), [stats](stats.md), [samples](samples.md),
 [rate-limiting](rate-limiting.md). Storage backends differ on duplicate
-`eventId` (in-memory upsert vs ClickHouse append) — see [storage](storage.md).
+`eventId` (`in_memory` upsert vs `clickhouse` append) — see [storage](storage.md).
 
 ---
 

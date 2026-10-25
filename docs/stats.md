@@ -8,7 +8,8 @@ configuration (optional) and time range, with aggregations computed **in the sto
 
 ```mermaid
 flowchart TD
-  Client["GET /v1/stats/summary"] --> Ctrl["StatsController"]
+  Client["GET /v1/stats/summary"] --> Filter["AnalyticsRateLimitFilter"]
+  Filter --> Ctrl["StatsController"]
   Ctrl --> Svc["StatsService.summarize"]
   Svc --> C1["countInRange → totalEvents"]
   Svc --> C2["statsByCategory → byCategory"]
@@ -16,8 +17,8 @@ flowchart TD
   Svc --> C4["topAttackers"]
   Svc --> C5["topPaths → topTargetedPaths"]
   C1 & C2 & C3 & C4 & C5 --> Repo["EventRepository"]
-  Repo --> Mem["InMemoryEventRepository"]
-  Repo --> CH["ClickHouseEventRepository"]
+  Repo --> Mem["InMemoryEventRepository\nin_memory"]
+  Repo --> CH["ClickHouseEventRepository\nclickhouse"]
   Svc --> DTO["StatsSummary"]
   Ctrl --> DTO
 ```
@@ -34,7 +35,7 @@ flowchart TD
 | `configId` | no | Omit to aggregate across all configurations |
 
 Bad ISO-8601 → `400` via `IngestionExceptionHandler` (`ErrorResponse`). Missing required
-`from`/`to` → Spring's default `400` body (not our shape — see [`gaps.md`](gaps.md) #13).
+`from`/`to` → Spring's default `400` body (not our shape — see [`gaps.md`](gaps.md) #14).
 Empty range → zeros / empty maps / empty lists. Categories and actions with zero events are
 omitted from the maps (not zero-filled).
 
@@ -122,5 +123,6 @@ Omit `configId` to roll up all configs.
 ## Status
 
 Part 3 complete (`v0.3-stats`). See also [`samples.md`](samples.md),
-[`generator.md`](generator.md), [`system-paths.md`](system-paths.md).
+[`generator.md`](generator.md), [`rate-limiting.md`](rate-limiting.md)
+(`v0.6-rate-limiting`), [`system-paths.md`](system-paths.md).
 Stats follow-ups in [`gaps.md`](gaps.md).
