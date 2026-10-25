@@ -87,5 +87,5 @@ Then hit stats four times from the same client — the fourth should be `429` wi
 
 ## Status
 
-Bonus rate limiting implemented. Residuals (multi-instance, `X-Forwarded-For`,
-ingest limits) stay in [`gaps.md`](gaps.md) / the personal hint.
+Bonus rate limiting complete (`v0.6-rate-limiting`). Residuals (multi-instance,
+`X-Forwarded-For`, ingest limits) stay in [`gaps.md`](gaps.md).
