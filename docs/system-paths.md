@@ -66,8 +66,10 @@ flowchart LR
 
 ### 1. Ingest rejected
 
-Parse failure, validation failure, or semantic reject. Batch is atomic: nothing is
-stored. Handler turns the exception into a consistent body.
+Parse failure, validation failure, or semantic reject. For batches, validation is
+all-or-nothing: nothing from that request is stored. Handler turns the exception into a
+consistent body. (Persistence after a successful validate pass is sequential, not one
+transaction — see [`ingestion.md`](ingestion.md#batch-semantics).)
 
 ```mermaid
 flowchart LR

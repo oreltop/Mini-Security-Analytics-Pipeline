@@ -38,17 +38,18 @@ flowchart TD
 | 2 | Batch | no max batch size — a 10k-event POST is processed whole | cap size, return `413` past it |
 | 3 | Batch errors | transport errors are indexed (`[0].rule.category`), semantic errors are not (`eventId`) | thread the batch index through semantic validation |
 | 4 | Batch | intra-batch duplicate `eventId`: response returns both; **in-memory** keeps one (count can diverge); **ClickHouse** stores both rows | dedupe within the batch, or reject; CH: ReplacingMergeTree / upsert |
-| 5 | Enrichment | repeat-offender count-then-save isn't atomic → benign under-count under concurrency | atomic count+insert (a real store does this) |
-| 6 | Validation | `statusCode` only `@Positive` (999 accepted) | `@Min(100) @Max(599)` |
-| 7 | Enrichment | path bonus is a substring match (`/administrator` triggers `/admin`) | match path segments |
-| 8 | Validation | no IP-format check (`clientIp:"not-an-ip"` accepted) | validate IPv4/IPv6 |
-| 9 | Validation | no timestamp sanity bounds (far-future/ancient accepted) | reject implausible times |
-| 10 | Errors | `405`/`415` use Spring's default body, not our `ErrorResponse` | map them into the unified shape |
-| 11 | Docs | ingest **body** bad-timestamp message leaks the Java type ("invalid value for Instant"); stats/samples **query** params already use a friendlier message | same friendly wording on the body path |
-| 12 | Enums | enum matching is case-sensitive (`"deny"` rejected) | by design; could accept case-insensitively |
-| 13 | Stats | missing `from`/`to` → Spring's default 400 body, not `ErrorResponse` | map into the unified shape (same family as #10) |
-| 14 | Stats | top-N ties (equal counts) — order may differ in-memory vs ClickHouse | stable secondary sort (e.g. IP/path asc) |
-| 15 | Stats | categories/actions with zero events are omitted from maps | emit zeros for all enum values if dashboards need a fixed shape |
+| 5 | Batch | validation all-or-nothing is intentional ([`ingestion.md`](ingestion.md#batch-semantics)); saves after validate are sequential — mid-batch failure can partial-write | transactional batch or explicit partial-success contract |
+| 6 | Enrichment | repeat-offender count-then-save isn't atomic → benign under-count under concurrency | atomic count+insert (a real store does this) |
+| 7 | Validation | `statusCode` only `@Positive` (999 accepted) | `@Min(100) @Max(599)` |
+| 8 | Enrichment | path bonus is a substring match (`/administrator` triggers `/admin`) | match path segments |
+| 9 | Validation | no IP-format check (`clientIp:"not-an-ip"` accepted) | validate IPv4/IPv6 |
+| 10 | Validation | no timestamp sanity bounds (far-future/ancient accepted) | reject implausible times |
+| 11 | Errors | `405`/`415` use Spring's default body, not our `ErrorResponse` | map them into the unified shape |
+| 12 | Docs | ingest **body** bad-timestamp message leaks the Java type ("invalid value for Instant"); stats/samples **query** params already use a friendlier message | same friendly wording on the body path |
+| 13 | Enums | enum matching is case-sensitive (`"deny"` rejected) | by design; could accept case-insensitively |
+| 14 | Stats | missing `from`/`to` → Spring's default 400 body, not `ErrorResponse` | map into the unified shape (same family as #11) |
+| 15 | Stats | top-N ties (equal counts) — order may differ in-memory vs ClickHouse | stable secondary sort (e.g. IP/path asc) |
+| 16 | Stats | categories/actions with zero events are omitted from maps | emit zeros for all enum values if dashboards need a fixed shape |
 
 ## Deferred hardening / nice-to-haves
 
@@ -75,7 +76,7 @@ remains the zero-infra default. Remaining:
 
 - Time range is on event **`timestamp`** (chosen deliberately). Client-supplied times are spoofable
   and late arrivals can mutate past windows; a hardened system might watermark or offer a
-  `timeField` param. See also table rows #13–#15.
+  `timeField` param. See also table rows #14–#16.
 - `from > to` is not rejected explicitly (yields an empty summary).
 - Top-N limit is fixed at 10 (per assignment); not query-param configurable.
 

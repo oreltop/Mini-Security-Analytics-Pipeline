@@ -43,9 +43,10 @@ public class EventIngestionService {
     }
 
     /**
-     * Ingests a batch all-or-nothing: every event is validated first, so if any
-     * is invalid the whole batch is rejected and nothing is stored. Only once
-     * all pass are they enriched and saved, in order.
+     * Batch ingest with validation all-or-nothing: every event is validated first,
+     * so if any is invalid the whole batch is rejected and nothing is stored. Only
+     * once all pass are they enriched and saved, in order (saves are not a single
+     * transaction — a mid-batch store failure can leave earlier events persisted).
      */
     public List<EnrichedEvent> ingest(List<SecurityEvent> events) {
         events.forEach(this::validate);
