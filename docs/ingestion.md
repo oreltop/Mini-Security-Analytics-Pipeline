@@ -200,7 +200,7 @@ Validation lives in the **core service**, not the controller, so every entry pat
 - **Always an array response**; batch **validation** all-or-nothing (invalid → store nothing).
 - **Idempotent upsert by `eventId` on the in-memory profile** (at-least-once edge delivery).
   ClickHouse appends rows — replays can duplicate.
-- **Storage behind an interface** — in-memory default, ClickHouse on the `clickhouse` profile.
+- **Storage behind an interface** — `in_memory` (default) or `clickhouse` profile.
 
 ---
 

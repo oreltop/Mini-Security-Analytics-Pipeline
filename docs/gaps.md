@@ -56,7 +56,7 @@ flowchart TD
 - **Richer OpenAPI** — only the `201` status is corrected; could add `@Operation`/`@Schema`
   descriptions and example payloads per endpoint.
 - **Observability** — no metrics/structured logging/tracing (e.g. Micrometer, request logging).
-- **Config** — `clickhouse` profile exists for storage; threat weights / top-N / batch caps are
+- **Config** — storage profiles `in_memory` | `clickhouse`; threat weights / top-N / batch caps are
   still constants in code (not externalised).
 
 ## Storage
