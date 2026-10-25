@@ -20,6 +20,8 @@ flowchart TD
   Stats --> RL["In-process rate limit"]
   Ingest --> Err["Unified ErrorResponse"]
   Stats -.->|missing params, 405/415| ErrGap["Uneven error surface"]
+  Samples["GET /v1/events/samples"] -.->|negative limit/offset| Samples500["500 instead of 400"]
+  Samples500 -.-> ErrGap
 ```
 
 ---
@@ -100,12 +102,18 @@ See [`rate-limiting.md`](rate-limiting.md).
 Ingest maps many failures into a consistent `ErrorResponse`. Missing required stats
 params, some binding failures, and `405`/`415` still look like Spring defaults.
 
-Callers can’t rely on one error shape across the API.
+Samples is worse than a wrong body: `GET /v1/events/samples` with a **negative** `limit`
+or `offset` is only upper-clamped for `limit` (`Math.min(limit, 100)`). Negatives reach
+`Stream.skip` / `limit` (or the ClickHouse path), throw, and surface as a catch-all
+**`500`** instead of a client **`400`**. A bad query looks like a server fault.
 
-**Would change:** broaden `@RestControllerAdvice` (or dedicated handlers) so analytics and
-HTTP-level errors share the ingest contract.
+Callers can’t rely on one error shape — or even the right status class — across the API.
 
-See gaps #11, #14.
+**Would change:** reject `limit` / `offset` < 0 (and ideally `limit == 0`) with
+`ErrorResponse` + `400`; broaden `@RestControllerAdvice` so analytics and HTTP-level
+errors share the ingest contract.
+
+See [`samples.md`](samples.md), [`gaps.md`](gaps.md) samples residuals, gaps #11, #14.
 
 ---
 
