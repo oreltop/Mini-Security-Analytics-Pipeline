@@ -40,8 +40,10 @@ Content-Type: application/json
 - Accepts **a single event object or an array** (batch) of events.
 - **`201 Created`** with a JSON **array** of the stored *enriched* events (a single
   event comes back as a 1-element array).
-- **`400 Bad Request`** with a consistent error body on any invalid input. A batch is
-  **atomic**: if any event is invalid, the whole batch is rejected and nothing is stored.
+- **`400 Bad Request`** with a consistent error body on any invalid input. For batches,
+  **validation is all-or-nothing**: if any event is invalid, the whole request is rejected
+  and **nothing** from that request is stored (no partial success, no “N−1 saved”).
+  See [Batch semantics](#batch-semantics) below.
 
 OpenAPI/Swagger is served alongside:
 
@@ -113,6 +115,24 @@ HTTP JSON  (a single object OR an array)
 [4] Controller → 201 Created, body = array of EnrichedEvent
 ```
 
+### Batch semantics
+
+**Validation all-or-nothing (by design).** `EventIngestionService` validates every event in
+the list before calling `save` on any of them. One bad row in a seven-event batch → **`400`**
+and **zero** rows persisted from that HTTP request. The client does not get a mixed outcome
+for validation failures.
+
+**Persistence is not one transaction.** After all events pass validation, they are enriched
+and saved sequentially. A store error on event 7 can leave events 1–6 already written; the
+client usually sees **`500`**. Retries then depend on `eventId` / profile semantics
+([`storage.md`](storage.md)).
+
+| Outcome | HTTP | Stored from this request |
+|---|---|---|
+| Any event invalid or unparseable | `400` | None |
+| All valid, every save succeeds | `201` | All |
+| All valid, save fails partway | `500` | Possibly some (not all-or-nothing) |
+
 ### Validation — three checks, one error shape
 
 | Check | Where | Catches |
@@ -177,7 +197,7 @@ Validation lives in the **core service**, not the controller, so every entry pat
 - **Unified error contract** for every `400`, transport or semantic.
 - **Single-or-array binding** via `accept-single-value-as-array`, keeping all binding (and
   thus transport error handling) at the Jackson boundary.
-- **Always an array response**, and **atomic** batch (all-or-nothing).
+- **Always an array response**; batch **validation** all-or-nothing (invalid → store nothing).
 - **Idempotent upsert by `eventId` on the in-memory profile** (at-least-once edge delivery).
   ClickHouse appends rows — replays can duplicate.
 - **Storage behind an interface** — in-memory default, ClickHouse on the `clickhouse` profile.
