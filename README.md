@@ -3,12 +3,18 @@
 Backend take-home: ingest security DLRs, enrich them, store them, and expose
 analytics over REST. Java 21 + Spring Boot 3.3.
 
-Detailed write-ups live under [`docs/`](docs/)
-([system paths](docs/system-paths.md), [ingestion](docs/ingestion.md),
-[enrichment](docs/enrichment.md), [storage](docs/storage.md),
-[stats](docs/stats.md), [samples](docs/samples.md),
-[generator](docs/generator.md), [rate-limiting](docs/rate-limiting.md),
-[gaps](docs/gaps.md), [weaknesses](docs/weaknesses.md)).
+Detailed write-ups live under [`docs/`](docs/):
+
+| Doc | What it covers |
+|---|---|
+| [system paths](docs/system-paths.md) | Happy-path and error-path overview |
+| [ingestion](docs/ingestion.md) | Validate → enrich → store; [batch semantics](docs/ingestion.md#batch-semantics) |
+| [enrichment](docs/enrichment.md) | Attack type, threat score, `receivedAt` |
+| [storage](docs/storage.md) | `EventRepository`, profiles, ClickHouse choice |
+| [stats](docs/stats.md) / [samples](docs/samples.md) | Analytics APIs |
+| [generator](docs/generator.md) / [rate-limiting](docs/rate-limiting.md) | Tooling & bonus |
+| [gaps](docs/gaps.md) | Deferred hardening and unfinished polish |
+| [weaknesses](docs/weaknesses.md) | Structural design debts (e.g. identity semantics) |
 
 ---
 
@@ -23,7 +29,7 @@ Detailed write-ups live under [`docs/`](docs/)
 ## Run tests
 
 ```bash
-# Fast unit / API tests (in-memory; excludes Testcontainers)
+# Fast unit / API tests (in_memory profile; excludes Testcontainers)
 ./mvnw test
 
 # Integration tests against a real ClickHouse (Docker required)
@@ -37,10 +43,12 @@ Detailed write-ups live under [`docs/`](docs/)
 
 ## Build & run (local, in-memory)
 
-No database required — default storage profile is `in_memory` (`spring.profiles.default`).
+No database required — default storage profile is `in_memory`
+(`spring.profiles.default` in `application.properties`).
 
 ```bash
 ./mvnw spring-boot:run
+# equivalent: ./mvnw spring-boot:run -Dspring-boot.run.profiles=in_memory
 ```
 
 App: [http://localhost:8080](http://localhost:8080)
@@ -49,7 +57,8 @@ App: [http://localhost:8080](http://localhost:8080)
 
 ## Build & run (Docker / ClickHouse)
 
-Builds the app image and starts ClickHouse + the app on the `clickhouse` profile:
+Builds the app image and starts ClickHouse + the app with
+`SPRING_PROFILES_ACTIVE=clickhouse`:
 
 ```bash
 docker compose up --build
@@ -65,6 +74,9 @@ Stop / clean:
 ```bash
 docker compose down
 ```
+
+Activate **exactly one** of `in_memory` | `clickhouse` — both at once registers two
+`EventRepository` beans. Profile rationale: [docs/storage.md](docs/storage.md#profile-choice-design-decision).
 
 ---
 
@@ -97,7 +109,7 @@ curl -sS -X POST http://localhost:8080/v1/events/ingest \
 ```
 
 **Milestones:** `v0.1-ingestion` · `v0.2-enrichment` · `v0.3-stats` · `v0.4-samples`
-· `v0.5-generator`
+· `v0.5-generator` · `v0.6-rate-limiting`
 
 ---
 
@@ -111,30 +123,39 @@ curl -sS -X POST http://localhost:8080/v1/events/ingest \
                                        │
               ┌────────────────────────┼────────────────────────┐
               │                        │                        │
-              ▼                        ▼                        ▼
-     InMemoryEventRepository   ClickHouseEventRepository   (profile)
-     ConcurrentHashMap           MergeTree / JDBC     in_memory | clickhouse
-              │                        │
-              └────────────┬───────────┘
-                           │
-         ┌─────────────────┼─────────────────┐
-         ▼                 ▼                 ▼
+              ▼                        ▼                        │
+     InMemoryEventRepository   ClickHouseEventRepository        │
+     profile: in_memory          profile: clickhouse            │
+     ConcurrentHashMap           MergeTree / JDBC               │
+              │                        │                        │
+              └────────────┬───────────┘                        │
+                           │                                    │
+         ┌─────────────────┼─────────────────┐                  │
+         ▼                 ▼                 ▼                  │
   GET /v1/stats/summary   GET /v1/events/samples   (rate-limited per IP)
   aggregations in store   filter + page in store
 ```
 
 **Pipeline:** transport binding → semantic validation → classification + threat
 score + `receivedAt` → store via `EventRepository` → analytics on the same seam.
-In-memory **upserts** by `eventId`; ClickHouse **appends** (duplicate ids possible).
+
+**Known contract difference (documented debt):** `in_memory` **upserts** by `eventId`;
+`clickhouse` **appends** (duplicate ids possible). See
+[docs/weaknesses.md](docs/weaknesses.md).
 
 **Design pillars**
 
 - **Zero-trust ingest:** required fields, enums, unknown JSON rejected; server
   stamps `receivedAt`.
+- **Batch validation all-or-nothing:** one invalid event → `400`, nothing from that
+  request stored; saves after a successful validate pass are sequential (not one
+  DB transaction) — [batch semantics](docs/ingestion.md#batch-semantics).
+- **Named storage profiles:** `in_memory` (default for local/tests) or `clickhouse`
+  (Compose / prod-like); activate exactly one.
 - **Swappable storage:** application code depends on `EventRepository` only.
-- **Aggregations in the store (Y):** ClickHouse `GROUP BY` / in-memory streams —
-  not “pull all rows and fold in Java.”
-- **Java 21 virtual threads** enabled for request handling
+- **Aggregations in the store:** ClickHouse `GROUP BY` / in-memory streams — not
+  “pull all rows and fold in Java.”
+- **Java 21 virtual threads** for request handling
   (`spring.threads.virtual.enabled=true`).
 
 ---
@@ -148,7 +169,7 @@ Assume the app is on `:8080`. Bodies are enriched events (original fields +
 
 Single object or array. `201` with enriched event(s); `400` with `ErrorResponse`.
 **Batch validation is all-or-nothing** — one invalid event rejects the whole request and
-nothing from that request is stored ([`docs/ingestion.md`](docs/ingestion.md#batch-semantics)).
+nothing from that request is stored ([docs/ingestion.md](docs/ingestion.md#batch-semantics)).
 
 ```bash
 curl -sS -X POST http://localhost:8080/v1/events/ingest \
@@ -205,52 +226,65 @@ Ingest is not limited. See [docs/rate-limiting.md](docs/rate-limiting.md).
 
 ## Storage justification
 
-Workload: append-only security events, read mainly as **time-range aggregations**
+Workload: append-heavy security events, read mainly as **time-range aggregations**
 (stats) and **filtered scans** (samples) — OLAP / event-analytics, not OLTP.
 
 | Option | Fit |
 |---|---|
-| **ClickHouse** (chosen for “real” profile) | Strong write throughput, columnar `GROUP BY`, time-order scans, TTL story |
+| **ClickHouse** (`clickhouse` profile) | Strong write throughput, columnar `GROUP BY`, time-order scans, TTL story |
 | Elasticsearch | Great search; weaker schema story and heavier ops for our fixed aggregations |
 | Postgres | Simple ops; aggregation + scale weaker for this access pattern |
 
-**Default storage is `in_memory`** so `./mvnw spring-boot:run` needs no database.
-Use `clickhouse` for the full stack (`docker compose up --build` sets the profile).
-Explicit: `-Dspring-boot.run.profiles=in_memory` or `clickhouse` (not both).
-Same `EventRepository` contract; stats/samples aggregations implemented on both
-backends. Deeper scorecard: personal notes / [docs/storage.md](docs/storage.md).
+| Profile | When |
+|---|---|
+| `in_memory` | Default (`spring.profiles.default`) — local run + fast tests, no DB |
+| `clickhouse` | Compose sets it; use for production-like / integration tests |
+
+Same `EventRepository` API on both; stats/samples aggregations live in each backend.
+Identity on replay still differs (upsert vs append) — tracked in
+[docs/weaknesses.md](docs/weaknesses.md). Deeper write-up:
+[docs/storage.md](docs/storage.md).
 
 ---
 
 ## What I’d improve with more time
 
-Highlights from [docs/gaps.md](docs/gaps.md):
+**Hardening** ([docs/gaps.md](docs/gaps.md)):
 
 - Cap batch size; reject empty batches; align batch error indexing
 - Stricter validation (HTTP status range, IP format, timestamp sanity)
-- Unified `ErrorResponse` for more Spring default statuses
-- ClickHouse batched inserts, table TTL, and `eventId` dedup / upsert
+- Unified `ErrorResponse` for more Spring default statuses (`405`/`415`, missing stats params)
+- ClickHouse batched inserts and table TTL
 - Distributed rate-limit store + trusted forwarded IP headers
 - Observability (metrics / structured logs) and richer OpenAPI examples
 - Optional bonuses still open: alerting rules, time-series buckets
+
+**Design debts** ([docs/weaknesses.md](docs/weaknesses.md)):
+
+- One identity contract across profiles (`eventId` upsert vs append)
+- Atomic enrich+persist for repeat-offender scoring
+- Persistence all-or-nothing (or an explicit partial-success API) after validate passes
 
 ---
 
 ## Challenges & how we approached them
 
-1. **Storage without locking the product to one engine** — introduced
-   `EventRepository` early; in-memory unblocked TDD; ClickHouse landed behind a
-   profile with Testcontainers integration tests.
-2. **Making ClickHouse “pay for itself”** — rejected aggregating in Java over a
-   full row fetch; pushed `GROUP BY` / top-N into both repository implementations
-   so the architecture story stays honest.
-3. **Repeat-offender scoring vs zero-trust** — count window uses server
+1. **Storage without locking the product to one engine** — `EventRepository` early;
+   `in_memory` unblocked TDD; ClickHouse behind a named profile with Testcontainers.
+2. **Named profiles instead of `!clickhouse`** — both backends are first-class;
+   default stays `in_memory` for clone-and-run; Compose / deploy sets `clickhouse`
+   explicitly ([profile choice](docs/storage.md#profile-choice-design-decision)).
+3. **Making ClickHouse “pay for itself”** — rejected aggregating in Java over a
+   full row fetch; pushed `GROUP BY` / top-N into both repository implementations.
+4. **Batch meaning** — validation all-or-nothing by design; documented that saves
+   after validate are sequential (not one transaction).
+5. **Repeat-offender scoring vs zero-trust** — count window uses server
    `receivedAt`, not client `timestamp`.
-4. **Test pollution under `@SpringBootTest`** — shared in-memory store +
+6. **Test pollution under `@SpringBootTest`** — shared in-memory store +
    repeat-offender IP bonuses; isolated tests with unique `configId` / `clientIp`.
-5. **Bash generator determinism** — `RANDOM` updates inside `$(…)` subshells were
+7. **Bash generator determinism** — `RANDOM` updates inside `$(…)` subshells were
    discarded; pick helpers now run in-process under `--seed`.
-6. **Product vs tooling** — generator lives under `tools/`, not `src/main`, so it
+8. **Product vs tooling** — generator lives under `tools/`, not `src/main`, so it
    never ships in the app artifact.
 
 ---
